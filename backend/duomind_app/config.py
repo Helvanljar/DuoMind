@@ -12,3 +12,5 @@ EDITOR_PROVIDER = os.getenv("EDITOR_PROVIDER", "gpt").strip().lower()
 
 GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///duomind.db").strip()
