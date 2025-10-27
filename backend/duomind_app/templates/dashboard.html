@@ -1,0 +1,148 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DuoMind · Dashboard</title>
+  <style>
+    :root { --bg:#0b0b0c; --card:#121214; --fg:#eaeaea; --muted:#a9a9b2; --accent:#6cc8ff; --ok:#22c55e; --warn:#f59e0b; --border:rgba(255,255,255,.08); }
+    @media (prefers-color-scheme: light) {
+      :root { --bg:#f7f7f8; --card:#ffffff; --fg:#1a1a1e; --muted:#4b5563; --accent:#0066cc; --ok:#16a34a; --warn:#b45309; --border:rgba(0,0,0,.08); }
+    }
+    *{ box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font: 15.5px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+    .wrap { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.08); overflow: hidden; }
+    .header { padding: 20px 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap: wrap; }
+    .title { font-size: 20px; font-weight: 800; letter-spacing: .2px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .actions { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+    input[type="text"]{ width: 340px; max-width: 100%; background: transparent; border: 1px solid var(--border); color: var(--fg); padding: 10px 12px; border-radius: 10px; outline: none; }
+    input[type="checkbox"]{ transform: translateY(1px); }
+    button { padding: 10px 14px; border-radius: 10px; background: var(--accent); color: white; border: none; font-weight: 700; cursor: pointer; }
+    button:disabled{ opacity: .6; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    .pill { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; background: rgba(0,0,0,.05); color: var(--muted); font-size:12px; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .row-actions a{ text-decoration:none; color: var(--accent); }
+    .footer { padding: 14px 24px; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono"; }
+    .toast { position:fixed; right:16px; bottom:16px; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:12px; padding:12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.15); display:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">DuoMind · Dashboard</div>
+          <div class="muted">Research sessions overview</div>
+        </div>
+        <div class="actions">
+          <input id="query" type="text" placeholder="Enter a research question…" />
+          <label class="muted"><input id="autorun" type="checkbox" checked /> run immediately</label>
+          <button id="newBtn">New Research</button>
+          <a class="pill" href="/docs" title="Open API Docs">Open API Docs</a>
+        </div>
+      </div>
+      <div class="content">
+        <table>
+          <thead>
+            <tr>
+              <th>Query</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Report</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td class="mono">{{ s.user_query }}</td>
+              <td>{% if s.status == 'complete' %}<span class="ok">✔ complete</span>{% else %}<span class="warn">… draft</span>{% endif %}</td>
+              <td>{{ s.created_at }}</td>
+              <td class="row-actions">
+                {% if s.has_report %}
+                  <a href="/report/{{ s.id }}">View</a>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="footer">
+        <span class="muted">Total sessions: {{ sessions | length }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const q = document.getElementById('query');
+    const auto = document.getElementById('autorun');
+    const btn = document.getElementById('newBtn');
+    const toast = document.getElementById('toast');
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    async function createSession(query) {
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_query: query })
+      });
+      if (!res.ok) throw new Error('Create session failed');
+      return res.json();
+    }
+
+    async function runSession(id) {
+      const res = await fetch(`/api/session/${id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'auto' })
+      });
+      if (!res.ok) throw new Error('Run failed');
+      return res.json();
+    }
+
+    btn.addEventListener('click', async () => {
+      const query = q.value.trim();
+      if (!query) {
+        showToast('Please enter a research question.');
+        q.focus();
+        return;
+      }
+      btn.disabled = true;
+      showToast('Creating session…');
+      try {
+        const s = await createSession(query);
+        if (auto.checked) {
+          showToast('Running research…');
+          await runSession(s.id);
+          window.location.href = `/report/${s.id}`;
+        } else {
+          showToast('Session created. Opening…');
+          window.location.href = `/api/session/${s.id}`;
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('Something went wrong.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

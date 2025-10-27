@@ -128,3 +128,28 @@ def render_report(session_id: str, request: Request, db: OrmSession = Depends(ge
 
     html_body = markdown2.markdown(r.markdown or "", extras=["fenced-code-blocks", "tables", "strike", "task_list", "header-ids"])
     return templates.TemplateResponse("report.html", {"request": request, "session_id": session_id, "user_query": s.user_query, "verified": r.verified, "report_html": html_body})
+
+# --- Tag 3.1 additions (append to your existing main.py) ---
+from fastapi.responses import RedirectResponse, HTMLResponse
+
+@app.get("/", response_class=HTMLResponse)
+def dashboard(request: Request, db: OrmSession = Depends(get_db)):
+    rows = db.query(models.Session).order_by(models.Session.created_at.desc()).all()
+    if not rows:
+        return RedirectResponse(url="/docs", status_code=302)
+
+    data = []
+    for s in rows:
+        has_report = db.query(models.Report).filter(models.Report.session_id == s.id).first() is not None
+        data.append({
+            "id": s.id,
+            "user_query": s.user_query,
+            "status": s.status,
+            "created_at": s.created_at,
+            "has_report": has_report
+        })
+
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "sessions": data
+    })
