@@ -1,4 +1,0 @@
-
-# --- Tag 3 additions (HTML rendering) ---
-Jinja2==3.1.4
-markdown2==2.4.12

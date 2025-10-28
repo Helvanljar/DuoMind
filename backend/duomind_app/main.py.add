@@ -1,25 +1,13 @@
 
-# --- Tag 3.1 additions (append to your existing main.py) ---
-from fastapi.responses import RedirectResponse, HTMLResponse
-
-@app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, db: OrmSession = Depends(get_db)):
-    rows = db.query(models.Session).order_by(models.Session.created_at.desc()).all()
-    if not rows:
-        return RedirectResponse(url="/docs", status_code=302)
-
-    data = []
-    for s in rows:
-        has_report = db.query(models.Report).filter(models.Report.session_id == s.id).first() is not None
-        data.append({
-            "id": s.id,
-            "user_query": s.user_query,
-            "status": s.status,
-            "created_at": s.created_at,
-            "has_report": has_report
-        })
-
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "sessions": data
-    })
+# --- Day 4 additions ---
+from duomind_app.config import RESEARCHER_PROVIDER, EDITOR_PROVIDER
+from duomind_app import llm_orchestrator
+@app.get("/api/providers")
+def providers():
+    return {"researcher": RESEARCHER_PROVIDER, "editor": EDITOR_PROVIDER}
+# In /api/session/{session_id}/run handler, use:
+#   if mode == "dual":
+#       notes, report_md = llm_orchestrator.dual_run(s.user_query, context, verified=True)
+#   else:
+#       notes = llm_orchestrator.researcher_generate_notes(s.user_query, context)
+#       report_md = llm_orchestrator.editor_generate_report(s.user_query, notes, verified)
