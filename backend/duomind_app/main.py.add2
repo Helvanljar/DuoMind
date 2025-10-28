@@ -1,0 +1,17 @@
+
+from duomind_app.auth import get_current_user
+from duomind_app.key_resolver import resolve_keys
+from duomind_app.routes_auth import router as auth_router
+from duomind_app.routes_me import router as me_router
+from duomind_app.routes_models import router as models_router
+
+app.include_router(auth_router)
+app.include_router(me_router)
+app.include_router(models_router)
+
+# Inside your /api/session/{session_id}/run handler before LLM calls:
+#   user = get_current_user()
+#   keys = resolve_keys(user)
+#   import os
+#   if keys.get("openai"): os.environ["OPENAI_API_KEY"] = keys["openai"] or ""
+#   if keys.get("gemini"): os.environ["GEMINI_API_KEY"] = keys["gemini"] or ""
