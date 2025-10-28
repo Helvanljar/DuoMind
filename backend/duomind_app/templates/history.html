@@ -1,0 +1,25 @@
+
+{% extends "base.html" %}
+{% block title %}History – DuoMind{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Research History</h2>
+  {% if guest %}
+    <p class="muted">You are in guest mode. Login to see your history.</p>
+  {% else %}
+    <p class="muted">Recent queries for <b>{{ email }}</b>.</p>
+    <table class="table">
+      <thead><tr><th>When</th><th>Model</th><th>Query</th></tr></thead>
+      <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.created_at }}</td>
+          <td>{{ item.model_used or "-" }}</td>
+          <td class="wrap">{{ item.query[:200] }}{% if item.query|length > 200 %}…{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+{% endblock %}

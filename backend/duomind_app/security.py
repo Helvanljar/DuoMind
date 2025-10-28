@@ -2,29 +2,29 @@
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import Header
+
+import bcrypt
 from jose import jwt, JWTError
-from argon2 import PasswordHasher
+from fastapi import Header
+
 from duomind_app.db import SessionLocal
 from duomind_app import models
 
 JWT_SECRET = os.getenv("JWT_SECRET", "change-me-dev")
 ALGO = "HS256"
-ACCESS_TTL_DAYS = int(os.getenv("ACCESS_TTL_DAYS", "7"))
-ph = PasswordHasher()
+ACCESS_TTL_MIN = int(os.getenv("ACCESS_TTL_MIN", "60"))
 
-def hash_password(password: str) -> str:
-    return ph.hash(password)
+def get_password_hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(password: str, hashed: str) -> bool:
     try:
-        ph.verify(hashed, password)
-        return True
+        return bcrypt.checkpw(password.encode(), hashed.encode())
     except Exception:
         return False
 
-def make_token(user_id: int) -> str:
-    payload = {"sub": str(user_id), "exp": datetime.utcnow() + timedelta(days=ACCESS_TTL_DAYS)}
+def create_access_token(user_id: int) -> str:
+    payload = {"sub": str(user_id), "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TTL_MIN)}
     return jwt.encode(payload, JWT_SECRET, algorithm=ALGO)
 
 def decode_token(token: str) -> Optional[int]:
@@ -38,11 +38,11 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[mo
     if not authorization or not authorization.lower().startswith("bearer "):
         return None
     token = authorization.split(" ", 1)[1].strip()
-    user_id = decode_token(token)
-    if not user_id:
+    uid = decode_token(token)
+    if not uid:
         return None
     db = SessionLocal()
     try:
-        return db.query(models.User).get(user_id)
+        return db.query(models.User).get(uid)
     finally:
         db.close()

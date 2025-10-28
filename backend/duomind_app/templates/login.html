@@ -1,0 +1,34 @@
+
+{% extends "base.html" %}
+{% block title %}Login – DuoMind{% endblock %}
+{% block content %}
+<section class="card form">
+  <h2>Login</h2>
+  <label>Email
+    <input id="email" type="email" placeholder="you@example.com" required>
+  </label>
+  <label>Password
+    <input id="password" type="password" placeholder="••••••••" required>
+  </label>
+  <button class="btn" id="login">Login</button>
+  <p class="muted">No account? <a href="/register">Register</a></p>
+  <div id="status" class="status"></div>
+</section>
+<script>
+  const base = window.location.origin;
+  document.getElementById("login").onclick = async () => {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const res = await fetch(base + "/auth/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({email, password})
+    });
+    if(!res.ok){ document.getElementById("status").textContent = await res.text(); return; }
+    const data = await res.json();
+    localStorage.setItem("dm_token", data.token);
+    document.getElementById("status").textContent = "✅ Logged in as " + data.email;
+    setTimeout(()=>location.href="/settings", 600);
+  };
+</script>
+{% endblock %}

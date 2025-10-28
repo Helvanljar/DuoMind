@@ -1,24 +1,15 @@
 
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from duomind_app.config import DATABASE_URL
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///backend/duomind.db")
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, echo=False, future=True, connect_args=connect_args)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+Base = declarative_base()
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-)
-
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-
-class Base(DeclarativeBase):
-    pass
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def init_db() -> None:
+    from duomind_app import models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
