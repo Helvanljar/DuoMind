@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en" data-theme="dark">
 <head>
@@ -7,23 +6,220 @@
   <title>{% block title %}DuoMind{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="/static/duomind.svg">
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
 </head>
+
 <body>
 <header class="topbar">
   <div class="brand">
     <img src="/static/duomind.svg" alt="DuoMind" class="logo"/>
     <span>DuoMind</span>
   </div>
-  <nav>
-    <a href="/">Dashboard</a>
-    <a href="/settings">Settings</a>
-    <a href="/history">History</a>
-    <a href="/login">Login</a>
-  </nav>
+  <div class="nav-right">
+    <button class="nav-link" data-i18n="nav.dashboard" onclick="window.location.href='/'">Dashboard</button>
+
+    {% if current_user %}
+      <span class="nav-hello" data-i18n="nav.hello">Hello</span>
+      <span class="nav-user">{{ current_user.username or current_user.email }}</span>
+      <button class="nav-link" data-i18n="nav.settings" onclick="window.location.href='/settings'">Settings</button>
+      <button class="nav-link" data-i18n="nav.history" onclick="window.location.href='/history'">History</button>
+    {% else %}
+      <button class="nav-link" data-i18n="nav.login" onclick="openLoginModal()">Login</button>
+      <button class="nav-link" data-i18n="nav.register" onclick="openRegisterModal()">Register</button>
+    {% endif %}
+
+    <button class="pill-btn" id="theme-toggle" data-i18n="nav.theme">Theme</button>
+
+    <!-- 👇 custom language dropdown (option B) -->
+    <div class="lang-dropdown" data-open="false">
+      <button class="lang-trigger">
+        <span class="lang-current">English</span>
+        <span class="lang-caret">▾</span>
+      </button>
+      <div class="lang-menu">
+        <button data-lang="en">English</button>
+        <button data-lang="de">Deutsch</button>
+        <button data-lang="fr">Français</button>
+        <button data-lang="es">Español</button>
+        <button data-lang="pt">Português</button>
+        <button data-lang="tr">Türkçe</button>
+        <button data-lang="ru">Русский</button>
+        <button data-lang="ja">日本語</button>
+        <button data-lang="ko">한국어</button>
+        <button data-lang="zh">中文</button>
+        <button data-lang="th">ไทย</button>
+        <button data-lang="id">Bahasa</button>
+        <button data-lang="vi">Tiếng Việt</button>
+        <button data-lang="ar">العربية</button>
+      </div>
+    </div>
+  </div>
 </header>
+
 <main class="container">
   {% block content %}{% endblock %}
 </main>
-<footer class="footer">AI Research Copilot • © 2025</footer>
+
+<footer class="footer" data-i18n="footer.text">
+  AI Research Copilot • © 2025
+</footer>
+
+<!-- LOGIN MODAL -->
+<div id="login-modal" class="modal" aria-hidden="true">
+  <div class="modal-backdrop" onclick="closeModal('login-modal')"></div>
+  <div class="modal-panel">
+    <button class="modal-close" onclick="closeModal('login-modal')">×</button>
+    <h2 data-i18n="login.title">Login</h2>
+    <p class="muted" data-i18n="login.subtitle">Log in to access your settings and history.</p>
+    <form method="post" action="/auth/login" class="auth-form">
+      <label>
+        <span data-i18n="login.email">Email</span>
+        <input name="email" type="email" required data-i18n-placeholder="login.email" />
+      </label>
+      <label>
+        <span data-i18n="login.password">Password</span>
+        <input name="password" type="password" required data-i18n-placeholder="login.password" />
+      </label>
+      <button type="submit" class="primary-btn" data-i18n="login.button">Login</button>
+    </form>
+    <p class="muted">
+      <span data-i18n="login.noaccount">No account yet?</span>
+      <a href="javascript:void(0)" onclick="switchToRegister()" data-i18n="login.registerlink">Register</a>
+    </p>
+  </div>
+</div>
+
+<!-- REGISTER MODAL -->
+<div id="register-modal" class="modal" aria-hidden="true">
+  <div class="modal-backdrop" onclick="closeModal('register-modal')"></div>
+  <div class="modal-panel">
+    <button class="modal-close" onclick="closeModal('register-modal')">×</button>
+    <h2 data-i18n="register.title">Create Account</h2>
+    <p class="muted" data-i18n="register.subtitle">Username will be shown in the top right after login.</p>
+    <form method="post" action="/auth/register" class="auth-form" id="register-form">
+      <label>
+        <span data-i18n="register.username">Username</span>
+        <input name="username" required data-i18n-placeholder="register.username" />
+      </label>
+      <label>
+        <span data-i18n="register.email">Email</span>
+        <input name="email" type="email" required data-i18n-placeholder="register.email" />
+      </label>
+      <label>
+        <span data-i18n="register.password">Password</span>
+        <input name="password" id="pwd" type="password" required data-i18n-placeholder="register.password" />
+      </label>
+      <label>
+        <span data-i18n="register.confirm">Confirm password</span>
+        <input name="confirm_password" id="pwd2" type="password" required data-i18n-placeholder="register.confirm" />
+      </label>
+      <p class="muted" data-i18n="register.rules">
+        Password must be at least 8 characters, contain 2 digits, 1 special character, and 1 uppercase letter.
+      </p>
+      <button type="submit" class="primary-btn" data-i18n="register.button">Register</button>
+    </form>
+    <p class="muted">
+      <span data-i18n="register.already">Already have an account?</span>
+      <a href="javascript:void(0)" onclick="switchToLogin()" data-i18n="register.loginlink">Login</a>
+    </p>
+  </div>
+</div>
+
+<script>
+  function openLoginModal(){ document.getElementById('login-modal').classList.add('show'); }
+  function openRegisterModal(){ document.getElementById('register-modal').classList.add('show'); }
+  function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+  function switchToRegister(){ closeModal('login-modal'); openRegisterModal(); }
+  function switchToLogin(){ closeModal('register-modal'); openLoginModal(); }
+
+  /* ===== theme via cookie ===== */
+  function setTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    document.cookie = "duomind_theme="+theme+";path=/;max-age=31536000";
+  }
+  function getTheme(){
+    const f = document.cookie.split('; ').find(x=>x.startsWith('duomind_theme='));
+    return f ? f.split('=')[1] : null;
+  }
+  const savedTheme = getTheme();
+  if (savedTheme) setTheme(savedTheme);
+
+  document.getElementById('theme-toggle').addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    setTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ===== register form password check ===== */
+  const regForm = document.getElementById("register-form");
+  if (regForm){
+    regForm.addEventListener("submit", function(e){
+      const p = document.getElementById("pwd").value;
+      const c = document.getElementById("pwd2").value;
+      const s = /^(?=.*[A-Z])(?=(?:.*\d){2,})(?=.*[^\w\s]).{8,}$/;
+      if (p !== c){
+        alert("Passwords do not match.");
+        e.preventDefault();
+        return;
+      }
+      if (!s.test(p)){
+        alert("Password must be >=8 chars, >=2 digits, >=1 special, >=1 uppercase.");
+        e.preventDefault();
+      }
+    });
+  }
+
+  /* ===== custom language dropdown + cookie + i18n ===== */
+  (function(){
+    const dropdown = document.querySelector(".lang-dropdown");
+    if (!dropdown) return;
+
+    const trigger = dropdown.querySelector(".lang-trigger");
+    const menu = dropdown.querySelector(".lang-menu");
+    const label = dropdown.querySelector(".lang-current");
+
+    function setCookie(name, value, days = 365) {
+      const d = new Date();
+      d.setTime(d.getTime() + days * 24*60*60*1000);
+      document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`;
+    }
+    function getCookie(name) {
+      const v = `; ${document.cookie}`;
+      const p = v.split(`; ${name}=`);
+      return p.length === 2 ? p.pop().split(";").shift() : null;
+    }
+
+    // on load: use cookie language
+    const savedLang = getCookie("language");
+    if (savedLang) {
+      const activeBtn = menu.querySelector(`[data-lang="${savedLang}"]`);
+      if (activeBtn) label.textContent = activeBtn.textContent;
+      if (window.DuoMindI18N) window.DuoMindI18N.setLang(savedLang);
+    }
+
+    document.addEventListener("click", (e) => {
+      // toggle dropdown
+      if (trigger.contains(e.target)) {
+        const isOpen = dropdown.dataset.open === "true";
+        dropdown.dataset.open = isOpen ? "false" : "true";
+        return;
+      }
+
+      // select language
+      if (menu.contains(e.target) && e.target.dataset.lang) {
+        const lang = e.target.dataset.lang;
+        label.textContent = e.target.textContent.trim();
+        dropdown.dataset.open = "false";
+        setCookie("language", lang);
+        if (window.DuoMindI18N) window.DuoMindI18N.setLang(lang);
+        return;
+      }
+
+      // click outside -> close
+      if (!dropdown.contains(e.target)) {
+        dropdown.dataset.open = "false";
+      }
+    });
+  })();
+</script>
 </body>
 </html>

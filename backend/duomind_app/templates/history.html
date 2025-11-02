@@ -1,25 +1,20 @@
-
 {% extends "base.html" %}
 {% block title %}History – DuoMind{% endblock %}
 {% block content %}
 <section class="card">
-  <h2>Research History</h2>
-  {% if guest %}
-    <p class="muted">You are in guest mode. Login to see your history.</p>
+  <h1 data-i18n="history.title">History</h1>
+  {% if not current_user %}
+    <p class="muted" data-i18n="history.needlogin">You must be logged in to view your research history.</p>
+    <p class="muted">
+      <a href="/login" onclick="return DuoMindModal.open('/login');" data-i18n="history.cta.login">Login</a>
+      <span> · </span>
+      <a href="/register" onclick="return DuoMindModal.open('/register');" data-i18n="history.cta.register">Register</a>
+    </p>
   {% else %}
-    <p class="muted">Recent queries for <b>{{ email }}</b>.</p>
-    <table class="table">
-      <thead><tr><th>When</th><th>Model</th><th>Query</th></tr></thead>
-      <tbody>
-      {% for item in items %}
-        <tr>
-          <td>{{ item.created_at }}</td>
-          <td>{{ item.model_used or "-" }}</td>
-          <td class="wrap">{{ item.query[:200] }}{% if item.query|length > 200 %}…{% endif %}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <p class="muted">These are your recent research items.</p>
+    <div id="history-list" style="margin-top:1rem;">
+      <p class="muted">Call <code>GET /api/history</code> with your JWT to load items.</p>
+    </div>
   {% endif %}
 </section>
 {% endblock %}

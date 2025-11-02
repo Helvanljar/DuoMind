@@ -1,46 +1,39 @@
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import Optional
+import sqlite3
+from .security import get_current_user_from_token
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from duomind_app.security import get_current_user
-from duomind_app.db import SessionLocal
-from duomind_app import models
+DB_PATH = "duomind.db"
+router = APIRouter()
 
-templates = Jinja2Templates(directory="backend/duomind_app/templates")
-router = APIRouter(tags=["history"])
+class HistoryCreate(BaseModel):
+    query: str
+    llm_used: Optional[str] = None  # was model_used
 
-@router.get("/history", response_class=HTMLResponse)
-def history_page(request: Request, user=Depends(get_current_user)):
-    if not user:
-        return templates.TemplateResponse("history.html", {"request": request, "items": [], "guest": True})
-    db = SessionLocal()
-    try:
-        rows = (
-            db.query(models.UserQueryHistory)
-            .filter(models.UserQueryHistory.user_id == user.id)
-            .order_by(models.UserQueryHistory.created_at.desc())
-            .limit(100)
-            .all()
-        )
-        return templates.TemplateResponse("history.html", {"request": request, "items": rows, "guest": False, "email": user.email})
-    finally:
-        db.close()
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-@router.get("/api/history")
-def history_api(user=Depends(get_current_user)):
-    if not user:
-        return {"items": []}
-    db = SessionLocal()
-    try:
-        rows = (
-            db.query(models.UserQueryHistory)
-            .filter(models.UserQueryHistory.user_id == user.id)
-            .order_by(models.UserQueryHistory.created_at.desc())
-            .limit(100)
-            .all()
-        )
-        return {"items": [
-            {"id": r.id, "query": r.query, "model_used": r.model_used, "created_at": r.created_at.isoformat()} for r in rows
-        ]}
-    finally:
-        db.close()
+@router.post("/history")
+def create_history(payload: HistoryCreate, current_user=Depends(get_current_user_from_token)):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO history (user_id, query, model_used) VALUES (?, ?, ?)",
+        (current_user["id"], payload.query, payload.llm_used),
+    )
+    conn.commit()
+    return {"status": "ok"}
+
+@router.get("/history")
+def list_history(current_user=Depends(get_current_user_from_token)):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, query, model_used, created_at FROM history WHERE user_id = ? ORDER BY created_at DESC",
+        (current_user["id"],),
+    )
+    rows = cur.fetchall()
+    return [dict(r) for r in rows]

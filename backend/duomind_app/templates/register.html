@@ -1,34 +1,54 @@
-
 {% extends "base.html" %}
 {% block title %}Register – DuoMind{% endblock %}
 {% block content %}
-<section class="card form">
-  <h2>Create Account</h2>
-  <label>Email
-    <input id="email" type="email" placeholder="you@example.com" required>
-  </label>
-  <label>Password
-    <input id="password" type="password" placeholder="minimum 8 chars" required>
-  </label>
-  <button class="btn" id="register">Register</button>
-  <p class="muted">Already have an account? <a href="/login">Login</a></p>
-  <div id="status" class="status"></div>
+<section class="modal-card">
+  <h1 data-i18n="register.title">Create Account</h1>
+  <p class="muted" data-i18n="register.subtitle">Username will be shown in the top right after login.</p>
+  <form method="post" action="/auth/register" id="register-form" style="display:flex;flex-direction:column;gap:1rem;">
+    <div>
+      <label data-i18n="register.username">Username</label>
+      <input type="text" name="username" required placeholder="duomind-user">
+    </div>
+    <div>
+      <label data-i18n="register.email">Email</label>
+      <input type="email" name="email" required placeholder="you@example.com">
+    </div>
+    <div>
+      <label data-i18n="register.password">Password</label>
+      <input type="password" name="password" id="pwd" required>
+    </div>
+    <div>
+      <label data-i18n="register.confirm">Confirm password</label>
+      <input type="password" name="confirm_password" id="pwd2" required>
+    </div>
+    <p class="muted" data-i18n="register.rules">
+      Password must be at least 8 characters, contain 2 digits, 1 special character, and 1 uppercase letter.
+    </p>
+    <button type="submit" class="btn-primary" data-i18n="register.button">Register</button>
+  </form>
+  <p style="margin-top:1rem;" data-i18n="register.already">
+    Already have an account?
+    <a href="#" data-open-login data-i18n="register.loginlink">Login</a>
+  </p>
 </section>
 <script>
-  const base = window.location.origin;
-  document.getElementById("register").onclick = async () => {
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-    const res = await fetch(base + "/auth/register", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({email, password})
-    });
-    if(!res.ok){ document.getElementById("status").textContent = await res.text(); return; }
-    const data = await res.json();
-    localStorage.setItem("dm_token", data.token);
-    document.getElementById("status").textContent = "✅ Registered as " + data.email;
-    setTimeout(()=>location.href="/settings", 600);
-  };
+document.addEventListener("DOMContentLoaded", function(){
+  const f = document.getElementById("register-form");
+  if (!f) return;
+  f.addEventListener("submit", function(e){
+    const p = document.getElementById("pwd").value;
+    const c = document.getElementById("pwd2").value;
+    const strong = /^(?=.*[A-Z])(?=(?:.*\d){2,})(?=.*[^\w\s]).{8,}$/;
+    if (p !== c) {
+      alert("Passwords do not match.");
+      e.preventDefault();
+      return;
+    }
+    if (!strong.test(p)) {
+      alert("Password must be >=8 chars, >=2 digits, >=1 special, >=1 uppercase.");
+      e.preventDefault();
+    }
+  });
+});
 </script>
 {% endblock %}

@@ -1,29 +1,34 @@
-
 {% extends "base.html" %}
 {% block title %}DuoMind – Dashboard{% endblock %}
 {% block content %}
 <section class="card hero">
-  <h1>Welcome to DuoMind</h1>
-  <p class="muted">A focused, dual‑LLM research copilot. Log in, set your keys, and start exploring.</p>
-  <div class="cta">
-    <a class="btn" href="/login">Login</a>
-    <a class="btn secondary" href="/register">Register</a>
-    <a class="btn outline" href="/settings">Settings</a>
-    <a class="btn ghost" href="/history">History</a>
-  </div>
+  <h1 data-i18n="home.title">Welcome to DuoMind</h1>
+  <p class="muted" data-i18n="home.subtitle">
+    A focused, dual-LLM research copilot. Log in, set your keys, and start exploring.
+  </p>
+  <input
+    class="hero-input"
+    type="text"
+    data-i18n-placeholder="home.search"
+    placeholder="Ask DuoMind to compare GPT and Gemini on a topic…"
+  />
+  <p class="muted" style="margin-top:1rem;" data-i18n="home.guest">
+    You are currently in guest mode. Please register or log in to save history and API keys.
+  </p>
 </section>
-<section class="grid">
+
+<section class="card-row">
   <div class="card">
-    <h3>Dual LLM</h3>
-    <p>Run GPT + Gemini together and compare perspectives.</p>
+    <h3 data-i18n="home.dual">Dual LLM</h3>
+    <p data-i18n="home.dual.desc">Run GPT + Gemini together and compare perspectives.</p>
   </div>
   <div class="card">
-    <h3>BYOK</h3>
-    <p>Bring your own API keys for full power and privacy.</p>
+    <h3 data-i18n="home.byok">BYOK</h3>
+    <p data-i18n="home.byok.desc">Bring your own API keys for full power and privacy.</p>
   </div>
   <div class="card">
-    <h3>History</h3>
-    <p>See your recent research sessions at a glance.</p>
+    <h3 data-i18n="home.history">History</h3>
+    <p data-i18n="home.history.desc">See your recent research sessions at a glance.</p>
   </div>
 </section>
 {% endblock %}
