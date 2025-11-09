@@ -1,20 +1,14 @@
 {% extends "base.html" %}
-{% block title %}DuoMind – Dashboard{% endblock %}
+{% block title %}DuoMind – Home{% endblock %}
 {% block content %}
 <section class="card hero">
   <h1 data-i18n="home.title">Welcome to DuoMind</h1>
-  <p class="muted" data-i18n="home.subtitle">
-    A focused, dual-LLM research copilot. Log in, set your keys, and start exploring.
-  </p>
-  <input
-    class="hero-input"
-    type="text"
-    data-i18n-placeholder="home.search"
-    placeholder="Ask DuoMind to compare GPT and Gemini on a topic…"
-  />
-  <p class="muted" style="margin-top:1rem;" data-i18n="home.guest">
-    You are currently in guest mode. Please register or log in to save history and API keys.
-  </p>
+  <p class="muted" data-i18n="home.subtitle">A focused, dual-LLM research copilot. Log in, set your keys, and start exploring.</p>
+  <div class="search-group">
+    <input id="duomind-query" class="hero-input" type="text" data-i18n-placeholder="home.search" placeholder="Ask DuoMind to compare GPT and Gemini on a topic…"/>
+    <button id="duomind-search" type="button" class="primary-btn search-btn" data-i18n="home.searchbtn">Search</button>
+  </div>
+  <p class="muted" style="margin-top:1rem;" data-i18n="home.guest">You are currently in guest mode. We’ll run GPT-4o mini + Gemini 1.5 Flash for you.</p>
 </section>
 
 <section class="card-row">
@@ -31,4 +25,18 @@
     <p data-i18n="home.history.desc">See your recent research sessions at a glance.</p>
   </div>
 </section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const q = document.getElementById("duomind-query");
+  const btn = document.getElementById("duomind-search");
+  function go(){
+    const query = (q.value||"").trim();
+    if(!query){q.focus();return;}
+    window.location.href = "/research?query="+encodeURIComponent(query);
+  }
+  btn.addEventListener("click", go);
+  q.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
+});
+</script>
 {% endblock %}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}DuoMind – Research{% endblock %}
+{% block content %}
+<section class="research-top card">
+  <h1 class="research-title" data-i18n="research.title">Research session</h1>
+  <p class="muted" id="duomind-query-label"></p>
+  <div class="search-group">
+    <input id="research-query" class="hero-input" type="text" data-i18n-placeholder="research.input" placeholder="Refine your query…"/>
+    <button id="research-run" class="primary-btn search-btn" data-i18n="research.run" type="button">Run</button>
+  </div>
+  <p id="research-status" class="muted small-status" data-i18n="research.guest">Guest mode: using GPT-4o mini + Gemini 1.5 Flash.</p>
+</section>
+
+<section id="research-results" class="research-layout" style="display:none;">
+  <div class="research-row">
+    <article class="llm-card">
+      <header class="llm-card-head">
+        <div class="llm-badge">A</div>
+        <div>
+          <h2 data-i18n="research.answerA">Answer (LLM A)</h2>
+          <p id="research-model-a-badge" class="llm-meta"></p>
+        </div>
+      </header>
+      <div id="research-answer-a" class="llm-card-body"></div>
+    </article>
+    <article class="llm-card">
+      <header class="llm-card-head">
+        <div class="llm-badge llm-badge-b">B</div>
+        <div>
+          <h2 data-i18n="research.answerB">Answer (LLM B)</h2>
+          <p id="research-model-b-badge" class="llm-meta"></p>
+        </div>
+      </header>
+      <div id="research-answer-b" class="llm-card-body"></div>
+    </article>
+  </div>
+  <article class="llm-compare-card">
+    <header>
+      <h2 data-i18n="research.synthesis">Comparison / Synthesis</h2>
+      <p id="research-synthesis" class="muted" style="margin-top:.4rem;"></p>
+    </header>
+    <div class="compare-cols">
+      <div class="compare-col">
+        <h3 data-i18n="research.agreements">Agreements</h3>
+        <ul id="research-agreements" class="compare-list"></ul>
+      </div>
+      <div class="compare-col">
+        <h3 data-i18n="research.disagreements">Disagreements</h3>
+        <ul id="research-disagreements" class="compare-list"></ul>
+      </div>
+    </div>
+  </article>
+</section>
+
+<script>
+function getParam(name){const u=new URL(window.location.href);return u.searchParams.get(name);}
+document.addEventListener("DOMContentLoaded",function(){
+  const qLabel=document.getElementById("duomind-query-label");
+  const qInput=document.getElementById("research-query");
+  const btn=document.getElementById("research-run");
+  const resWrap=document.getElementById("research-results");
+  const statusEl=document.getElementById("research-status");
+  const ansA=document.getElementById("research-answer-a");
+  const ansB=document.getElementById("research-answer-b");
+  const syn=document.getElementById("research-synthesis");
+  const agree=document.getElementById("research-agreements");
+  const disagree=document.getElementById("research-disagreements");
+  const badgeA=document.getElementById("research-model-a-badge");
+  const badgeB=document.getElementById("research-model-b-badge");
+
+  function lang(){
+    const both = document.cookie.split("; ");
+    const a = both.find(x=>x.startsWith("duomind_lang="));
+    const b = both.find(x=>x.startsWith("language="));
+    return (a||b) ? (a||b).split("=")[1] : "en";
+  }
+  const STATUS={
+    en:{loading:"Querying LLMs …",done:"Done ✓",net:"Network error.",bad:"Bad response.",limit:"Daily guest limit reached."},
+    de:{loading:"LLMs werden abgefragt …",done:"Fertig ✓",net:"Netzwerkfehler.",bad:"Fehlerhafte Antwort.",limit:"Tageslimit für Gäste erreicht."},
+    fr:{loading:"Interrogation des LLM…",done:"Terminé ✓",net:"Erreur réseau.",bad:"Réponse invalide.",limit:"Limite quotidienne invitée atteinte."},
+    es:{loading:"Consultando LLM…",done:"Listo ✓",net:"Error de red.",bad:"Respuesta no válida.",limit:"Límite diario de invitado alcanzado."}
+  };
+
+  const initialQuery=getParam("query")||"";
+  if(qLabel) qLabel.textContent=initialQuery;
+  if(qInput) qInput.value=initialQuery;
+
+  async function run(query){
+    const L=STATUS[lang()]||STATUS.en;
+    statusEl.textContent=L.loading; resWrap.style.display="flex";
+    ansA.textContent=ansB.textContent=syn.textContent="";
+    agree.innerHTML=disagree.innerHTML="";
+    let resp;
+    try{
+      resp=await fetch("/api/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query})});
+    }catch(e){statusEl.textContent=L.net;return;}
+    let data;
+    try{data=await resp.json();}catch(e){statusEl.textContent=L.bad;return;}
+    if(!data.ok){statusEl.textContent=(data.detail||L.limit);return;}
+    const r=data.data||{}, a=r.model_a||{}, b=r.model_b||{}, s=r.synthesis||{};
+    ansA.textContent=a.content||"–"; ansB.textContent=b.content||"–";
+    badgeA.textContent=[a.provider,a.model].filter(Boolean).join(" / ");
+    badgeB.textContent=[b.provider,b.model].filter(Boolean).join(" / ");
+    syn.textContent=s.summary||"–";
+    (s.agreements||[]).forEach(t=>{const li=document.createElement("li");li.textContent=t;agree.appendChild(li);});
+    (s.disagreements||[]).forEach(t=>{const li=document.createElement("li");li.textContent=(typeof t==="string")?t:((t.from?`[${t.from}] `:"")+(t.text||""));disagree.appendChild(li);});
+    statusEl.textContent=L.done;
+  }
+  if(initialQuery) run(initialQuery);
+  btn.addEventListener("click",()=>{const q=(qInput.value||"").trim(); if(!q){qInput.focus();return;} qLabel.textContent=q; run(q);});
+  qInput.addEventListener("keydown",e=>{ if(e.key==="Enter") btn.click(); });
+});
+</script>
+{% endblock %}
