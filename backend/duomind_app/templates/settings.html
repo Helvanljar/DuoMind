@@ -3,33 +3,224 @@
 {% block content %}
 <section class="card">
   <h1 data-i18n="settings.title">Settings</h1>
+
   {% if not current_user %}
-    <p class="muted" data-i18n="settings.needlogin">You need to be logged in to edit your OpenAI / Gemini keys.</p>
+    <p class="muted" data-i18n="settings.needlogin">You need to be logged in to edit your keys.</p>
     <p class="muted">
-      <a href="/login" onclick="return DuoMindModal.open('/login');" data-i18n="nav.login">Login</a> ·
-      <a href="/register" onclick="return DuoMindModal.open('/register');" data-i18n="nav.register">Register</a>
+      <a href="javascript:void(0)" onclick="openLoginModal()" data-i18n="nav.login">Login</a> ·
+      <a href="javascript:void(0)" onclick="openRegisterModal()" data-i18n="nav.register">Register</a>
     </p>
   {% else %}
     <p class="muted" data-i18n="settings.desc">Provide your own keys (BYOK) and preferred model.</p>
-    <form class="form-vertical" method="post" action="/settings">
+
+    <form id="settings-form" class="auth-form" method="post" action="/settings" autocomplete="off">
       <label>
-        <span>OpenAI API Key</span>
-        <input type="password" name="openai_key" placeholder="sk-..." class="input" />
+        <span data-i18n="settings.openai">OpenAI API Key</span>
+        <div class="password-field">
+          <input type="password" name="openai_key" placeholder="sk-..." />
+          <button type="button" class="toggle-eye" aria-label="Toggle key visibility">👁</button>
+        </div>
+        <div class="key-status" id="status-openai" aria-live="polite"></div>
       </label>
+
       <label>
-        <span>Gemini API Key</span>
-        <input type="password" name="gemini_key" placeholder="AIza..." class="input" />
+        <span data-i18n="settings.gemini">Gemini API Key</span>
+        <div class="password-field">
+          <input type="password" name="gemini_key" placeholder="AIza..." />
+          <button type="button" class="toggle-eye" aria-label="Toggle key visibility">👁</button>
+        </div>
+        <div class="key-status" id="status-gemini" aria-live="polite"></div>
       </label>
+
       <label>
-        <span>Preferred LLM</span>
-        <select name="preferred_llm" class="input">
-          <option value="auto">Auto (GPT → Gemini)</option>
-          <option value="openai">OpenAI first</option>
-          <option value="gemini">Gemini first</option>
-        </select>
+        <span data-i18n="settings.anthropic">Anthropic (Claude) API Key</span>
+        <div class="password-field">
+          <input type="password" name="anthropic_key" placeholder="sk-ant-..." />
+          <button type="button" class="toggle-eye" aria-label="Toggle key visibility">👁</button>
+        </div>
+        <div class="key-status" id="status-anthropic" aria-live="polite"></div>
       </label>
-      <button class="btn-primary" type="submit">Save</button>
+
+      <label>
+        <span data-i18n="settings.openrouter">OpenRouter API Key</span>
+        <div class="password-field">
+          <input type="password" name="openrouter_key" placeholder="sk-or-..." />
+          <button type="button" class="toggle-eye" aria-label="Toggle key visibility">👁</button>
+        </div>
+        <div class="key-status" id="status-openrouter" aria-live="polite"></div>
+      </label>
+
+      <label>
+        <span data-i18n="settings.mistral">Mistral API Key</span>
+        <div class="password-field">
+          <input type="password" name="mistral_key" placeholder="..." />
+          <button type="button" class="toggle-eye" aria-label="Toggle key visibility">👁</button>
+        </div>
+        <div class="key-status" id="status-mistral" aria-live="polite"></div>
+      </label>
+
+      <label>
+        <span data-i18n="settings.preferred">Preferred LLM</span>
+        <!-- Custom dropdown (matches navbar Language/User styling) -->
+        {% set pref = preferred_llm or 'auto' %}
+        <input type="hidden" name="preferred_llm" id="preferred-llm" value="{{ pref }}" />
+
+        <div class="lang-dropdown pref-dropdown" data-open="false" data-pref="{{ pref }}">
+          <button class="lang-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+            <span class="lang-current" id="preferred-llm-label" data-i18n="settings.opt.auto">Auto (GPT → Gemini)</span>
+            <span class="lang-caret">▾</span>
+          </button>
+          <div class="lang-menu" role="menu" aria-label="Preferred LLM">
+            <button type="button" role="menuitem" data-value="auto" data-i18n="settings.opt.auto">Auto (GPT → Gemini)</button>
+            <button type="button" role="menuitem" data-value="openai" data-i18n="settings.opt.openai">OpenAI first</button>
+            <button type="button" role="menuitem" data-value="gemini" data-i18n="settings.opt.gemini">Gemini first</button>
+            <button type="button" role="menuitem" data-value="anthropic" data-i18n="settings.opt.anthropic">Claude first</button>
+            <button type="button" role="menuitem" data-value="openrouter" data-i18n="settings.opt.openrouter">OpenRouter first</button>
+            <button type="button" role="menuitem" data-value="mistral" data-i18n="settings.opt.mistral">Mistral first</button>
+          </div>
+        </div>
+      </label>
+
+      <button class="primary-btn" type="submit" data-i18n="settings.save">Save</button>
+
+      <p class="muted" data-i18n="settings.tip">
+        Tip: Your keys are stored encrypted and only used for your requests.
+      </p>
     </form>
+
+    <script>
+      function fmt(str, vars){
+        return String(str||"").replace(/\{(\w+)\}/g, (_,k)=> (vars && vars[k]!=null) ? String(vars[k]) : "");
+      }
+
+      function providerLabel(p){
+        // Keep provider names stable (brand), but use friendly casing.
+        const map={openai:"OpenAI",gemini:"Gemini",anthropic:"Anthropic",openrouter:"OpenRouter",mistral:"Mistral"};
+        return map[p]||p;
+      }
+
+      function setStatus(provider, ok, text){
+        const el=document.getElementById(`status-${provider}`);
+        if(!el) return;
+        el.textContent = text || "";
+        el.classList.remove("key-ok","key-bad");
+        if(ok===true) el.classList.add("key-ok");
+        if(ok===false) el.classList.add("key-bad");
+      }
+
+      function clearStatuses(){
+        ["openai","gemini","anthropic","openrouter","mistral"].forEach(p=>setStatus(p,null,""));
+      }
+
+      // Eye toggles (settings page)
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".auth-form .toggle-eye").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const input = btn.parentElement.querySelector("input");
+            if (!input) return;
+            const isVisible = input.type === "text";
+            input.type = isVisible ? "password" : "text";
+            btn.classList.toggle("is-on", !isVisible);
+          });
+        });
+
+        // Preferred LLM dropdown -> hidden input
+        const wrap = document.querySelector(".pref-dropdown");
+        const hidden = document.getElementById("preferred-llm");
+        const label = document.getElementById("preferred-llm-label");
+
+        function syncPreferredLabel(){
+          if (!wrap || !hidden || !label) return;
+          const v = (hidden.value || "auto").trim() || "auto";
+          const btn = wrap.querySelector(`.lang-menu [data-value="${v}"]`);
+          if (btn) label.textContent = (btn.textContent || "").trim();
+        }
+
+        if (wrap && hidden) {
+          // initialize from server value
+          const initial = wrap.getAttribute("data-pref") || hidden.value || "auto";
+          hidden.value = initial;
+          syncPreferredLabel();
+
+          wrap.querySelectorAll(".lang-menu [data-value]").forEach(btn => {
+            btn.addEventListener("click", () => {
+              const v = btn.getAttribute("data-value") || "auto";
+              hidden.value = v;
+              syncPreferredLabel();
+            });
+          });
+
+          // update label after language switches / i18n re-renders
+          window.addEventListener("duomind:langchange", syncPreferredLabel);
+          // also handle mutation-based re-translation
+          setTimeout(syncPreferredLabel, 0);
+        }
+
+        // Save with validation (AJAX). Fallback to normal form post if fetch fails.
+        const form = document.getElementById("settings-form");
+        if (form) {
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            clearStatuses();
+
+            const fd = new FormData(form);
+            const body = {
+              openai_key: (fd.get("openai_key")||"").toString(),
+              gemini_key: (fd.get("gemini_key")||"").toString(),
+              anthropic_key: (fd.get("anthropic_key")||"").toString(),
+              openrouter_key: (fd.get("openrouter_key")||"").toString(),
+              mistral_key: (fd.get("mistral_key")||"").toString(),
+              preferred_llm: (fd.get("preferred_llm")||"").toString(),
+            };
+
+            let resp, data;
+            try {
+              resp = await fetch("/api/settings/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              data = await resp.json();
+            } catch (err) {
+              // fallback
+              form.submit();
+              return;
+            }
+
+            if (!data || !data.ok) {
+              // fallback (server might not support route)
+              form.submit();
+              return;
+            }
+
+            const t = window.DuoMindI18N?.t ? window.DuoMindI18N.t : (k=>k);
+            const tplOk = t("settings.keyValid") || "{provider} key valid";
+            const tplBad = t("settings.keyInvalid") || "{provider} key invalid";
+
+            const results = data.results || {};
+            Object.keys(results).forEach((prov) => {
+              const r = results[prov] || {};
+              if (r.status === "skipped") {
+                setStatus(prov, null, "");
+                return;
+              }
+              if (r.status === "valid") {
+                setStatus(prov, true, "✅ " + fmt(tplOk, { provider: providerLabel(prov) }));
+              } else {
+                const code = r.code ? ` (${r.code})` : "";
+                setStatus(prov, false, "❌ " + fmt(tplBad, { provider: providerLabel(prov) }) + code);
+              }
+            });
+
+            // Clear fields that were valid (safer: don't keep secrets on screen)
+            ["openai_key","gemini_key","anthropic_key","openrouter_key","mistral_key"].forEach((name)=>{
+              const input = form.querySelector(`[name="${name}"]`);
+              if (input) input.value = "";
+            });
+          });
+        }
+      });
+    </script>
   {% endif %}
 </section>
 {% endblock %}

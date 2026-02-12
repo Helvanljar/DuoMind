@@ -1,60 +1,96 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DuoMind · Report</title>
-  <style>
-    :root { --bg:#0b0b0c; --card:#121214; --fg:#eaeaea; --muted:#a9a9b2; --accent: #035487; --ok:#22c55e; --warn:#f59e0b; }
-    @media (prefers-color-scheme: light) {
-      :root { --bg:#f7f7f8; --card:#ffffff; --fg:#1a1a1e; --muted:#4b5563; --accent:#0066cc; --ok:#16a34a; --warn:#b45309; }
-    }
-    html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font: 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; }
-    .wrap { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-    .card { background: var(--card); border: 1px solid rgba(0,0,0,.08); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.08); overflow: hidden; }
-    .header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid rgba(0,0,0,.06); }
-    .title { font-size: 20px; font-weight: 700; letter-spacing: .2px; }
-    .muted { color: var(--muted); font-size: 14px; }
-    .badge { padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; letter-spacing: .3px; }
-    .badge.ok { background: rgba(34,197,94,.15); color: var(--ok); }
-    .badge.warn { background: rgba(245,158,11,.15); color: var(--warn); }
-    .content { padding: 28px; }
-    .content :is(h1,h2,h3) { margin-top: 1.2em; margin-bottom: .6em; line-height: 1.2; }
-    .content h1 { font-size: 28px; }
-    .content h2 { font-size: 22px; }
-    .content h3 { font-size: 18px; }
-    .content p, .content li { color: var(--fg); }
-    .content a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(0,0,0,0); transition: all .15s ease; }
-    .content a:hover { border-bottom-color: currentColor; }
-    .footer { display:flex; justify-content:space-between; gap:12px; align-items:center; padding: 16px 24px; border-top: 1px solid rgba(0,0,0,.06); }
-    .pill { display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; background: rgba(0,0,0,.05); border-radius:999px; color: var(--muted); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12.5px; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="header">
-        <div>
-          <div class="title">DuoMind · Research Report</div>
-          <div class="muted">Query: <span class="mono">{{ user_query }}</span></div>
-        </div>
+{% extends "base.html" %}
+{% block title %}DuoMind – Report{% endblock %}
+
+{% block content %}
+<section class="research-top card">
+  <h1 class="research-title">Report</h1>
+  {% if query %}
+    <p class="muted"><strong>Query:</strong> {{ query }}</p>
+  {% endif %}
+  {% if created_at %}
+    <p class="muted small-status">
+      Generated at {{ created_at }}
+      {% if verified is not none %}
+        · Status:
         {% if verified %}
-          <span class="badge ok">VERIFIED</span>
+          <span style="color:#4ade80;">Verified</span>
         {% else %}
-          <span class="badge warn">UNVERIFIED</span>
+          <span style="color:#facc15;">Unverified</span>
         {% endif %}
-      </div>
-      <div class="content">
-        <div aria-live="polite" id="report" class="md">
-          {{ report_html | safe }}
+      {% endif %}
+    </p>
+  {% endif %}
+</section>
+
+<section class="research-layout">
+  <div class="research-row">
+    <article class="llm-card card">
+      <header class="llm-card-head">
+        <div class="llm-badge">A</div>
+        <div>
+          <h2>Answer (LLM A)</h2>
+          {% if model_a %}
+            <p class="llm-meta">{{ model_a.provider|default('') }} {{ model_a.model|default('') }}</p>
+          {% endif %}
         </div>
+      </header>
+      <div class="llm-card-body md">
+        {{ answer_a_html|safe }}
       </div>
-      <div class="footer">
-        <span class="pill">Session: <span class="mono">{{ session_id }}</span></span>
-        <a class="pill" href="/docs">Open API Docs</a>
+    </article>
+
+    <article class="llm-card card">
+      <header class="llm-card-head">
+        <div class="llm-badge llm-badge-b">B</div>
+        <div>
+          <h2>Answer (LLM B)</h2>
+          {% if model_b %}
+            <p class="llm-meta">{{ model_b.provider|default('') }} {{ model_b.model|default('') }}</p>
+          {% endif %}
+        </div>
+      </header>
+      <div class="llm-card-body md">
+        {{ answer_b_html|safe }}
+      </div>
+    </article>
+  </div>
+
+  <article class="llm-compare-card card">
+    <header>
+      <h2>Comparison / Synthesis</h2>
+      {% if synthesis and synthesis.summary %}
+        <p class="muted" style="margin-top:.4rem;">{{ synthesis.summary }}</p>
+      {% endif %}
+    </header>
+
+    <div class="compare-cols">
+      <div class="compare-col">
+        <h3>Agreements</h3>
+        <ul class="compare-list">
+          {% for item in (synthesis.agreements or []) %}
+            <li>{{ item }}</li>
+          {% else %}
+            <li class="muted">No clear agreements extracted.</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="compare-col">
+        <h3>Disagreements</h3>
+        <ul class="compare-list">
+          {% for item in (synthesis.disagreements or []) %}
+            <li>{% if item.from %}[{{ item.from }}] {% endif %}{{ item.text }}</li>
+          {% else %}
+            <li class="muted">No significant disagreements extracted.</li>
+          {% endfor %}
+        </ul>
       </div>
     </div>
-  </div>
-</body>
-</html>
+
+    {% if session_id %}
+      <footer style="margin-top:1rem;font-size:.8rem;" class="muted">
+        Session ID: <code>{{ session_id }}</code>
+      </footer>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}

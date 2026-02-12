@@ -1,54 +1,101 @@
 {% extends "base.html" %}
-{% block title %}Register – DuoMind{% endblock %}
+{% block title %}DuoMind – Registrieren{% endblock %}
+
 {% block content %}
-<section class="modal-card">
-  <h1 data-i18n="register.title">Create Account</h1>
-  <p class="muted" data-i18n="register.subtitle">Username will be shown in the top right after login.</p>
-  <form method="post" action="/auth/register" id="register-form" style="display:flex;flex-direction:column;gap:1rem;">
-    <div>
-      <label data-i18n="register.username">Username</label>
-      <input type="text" name="username" required placeholder="duomind-user">
-    </div>
-    <div>
-      <label data-i18n="register.email">Email</label>
-      <input type="email" name="email" required placeholder="you@example.com">
-    </div>
-    <div>
-      <label data-i18n="register.password">Password</label>
-      <input type="password" name="password" id="pwd" required>
-    </div>
-    <div>
-      <label data-i18n="register.confirm">Confirm password</label>
-      <input type="password" name="confirm_password" id="pwd2" required>
-    </div>
-    <p class="muted" data-i18n="register.rules">
-      Password must be at least 8 characters, contain 2 digits, 1 special character, and 1 uppercase letter.
-    </p>
-    <button type="submit" class="btn-primary" data-i18n="register.button">Register</button>
-  </form>
-  <p style="margin-top:1rem;" data-i18n="register.already">
-    Already have an account?
-    <a href="#" data-open-login data-i18n="register.loginlink">Login</a>
-  </p>
+<section class="auth-page">
+  <div class="auth-card card">
+    <h1 class="auth-title">Registrieren</h1>
+    <p class="muted">Erstelle ein Konto, um fortzufahren.</p>
+
+    {% set err = request.query_params.get("error", "") %}
+    {% if err %}
+      <div class="auth-alert show" role="alert" aria-live="polite">
+        {% if err == "missing_fields" %}
+          Bitte fülle alle Felder aus.
+        {% elif err == "password_mismatch" %}
+          Die Passwörter stimmen nicht überein.
+        {% elif err == "weak_password" %}
+          Passwort ist zu schwach. Bitte beachte die Regeln unten.
+        {% elif err == "email_exists" %}
+          Diese E-Mail ist bereits registriert. Bitte melde dich an.
+        {% else %}
+          Etwas ist schiefgelaufen. Bitte versuch es erneut.
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <form method="post" action="/auth/register" class="auth-form">
+      <label class="auth-label" for="username">Benutzername</label>
+      <input
+        id="username"
+        name="username"
+        class="auth-input"
+        type="text"
+        autocomplete="username"
+        placeholder="Benutzername"
+        required
+        value="{{ request.query_params.get('username','') }}"
+      />
+
+      <label class="auth-label" for="email">E-Mail</label>
+      <input
+        id="email"
+        name="email"
+        class="auth-input"
+        type="email"
+        autocomplete="email"
+        placeholder="E-Mail"
+        required
+        value="{{ request.query_params.get('email','') }}"
+      />
+
+      <label class="auth-label" for="password">Passwort</label>
+      <div class="auth-password">
+        <input
+          id="password"
+          name="password"
+          class="auth-input"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Passwort"
+          required
+        />
+        <button type="button" class="eye-btn" aria-label="Toggle password" onclick="togglePw('password')">👁</button>
+      </div>
+
+      <label class="auth-label" for="confirm_password">Passwort bestätigen</label>
+      <div class="auth-password">
+        <input
+          id="confirm_password"
+          name="confirm_password"
+          class="auth-input"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Passwort bestätigen"
+          required
+        />
+        <button type="button" class="eye-btn" aria-label="Toggle password" onclick="togglePw('confirm_password')">👁</button>
+      </div>
+
+      <p class="muted auth-hint">
+        Passwort: mind. 8 Zeichen, 2 Ziffern, 1 Sonderzeichen und 1 Großbuchstabe.
+      </p>
+
+      <button type="submit" class="btn-primary auth-submit">Registrieren</button>
+
+      <p class="auth-switch">
+        <span class="muted">Schon ein Konto?</span>
+        <a href="/auth/login-page" class="auth-link auth-link--premium">Anmelden</a>
+      </p>
+    </form>
+  </div>
 </section>
+
 <script>
-document.addEventListener("DOMContentLoaded", function(){
-  const f = document.getElementById("register-form");
-  if (!f) return;
-  f.addEventListener("submit", function(e){
-    const p = document.getElementById("pwd").value;
-    const c = document.getElementById("pwd2").value;
-    const strong = /^(?=.*[A-Z])(?=(?:.*\d){2,})(?=.*[^\w\s]).{8,}$/;
-    if (p !== c) {
-      alert("Passwords do not match.");
-      e.preventDefault();
-      return;
-    }
-    if (!strong.test(p)) {
-      alert("Password must be >=8 chars, >=2 digits, >=1 special, >=1 uppercase.");
-      e.preventDefault();
-    }
-  });
-});
+  function togglePw(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.type = (el.type === "password") ? "text" : "password";
+  }
 </script>
 {% endblock %}

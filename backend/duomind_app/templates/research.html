@@ -5,7 +5,29 @@
   <h1 class="research-title" data-i18n="research.title">Research session</h1>
   <p class="muted" id="duomind-query-label"></p>
   <div class="search-group">
-    <input id="research-query" class="hero-input" type="text" data-i18n-placeholder="research.input" placeholder="Refine your query…"/>
+    <input id="research-query" class="input search-input" data-i18n-placeholder="research.search" placeholder="Type a query…" />
+
+    {% if current_user %}
+    <div class="model-row">
+      <label class="muted" style="display:block;margin-top:10px;" data-i18n="research.models">Models</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <select id="model-a" class="input">
+          <option value="openai:gpt-4o-mini">OpenAI: gpt-4o-mini</option>
+          <option value="openai:gpt-4o">OpenAI: gpt-4o</option>
+        </select>
+        <select id="model-b" class="input">
+          <option value="gemini:1.5-flash">Gemini: 1.5-flash</option>
+          <option value="gemini:1.5-pro">Gemini: 1.5-pro</option>
+        </select>
+      </div>
+      <p class="muted" style="margin-top:6px;">
+        <span data-i18n="research.tipPrefix">Tip: Add your own keys in</span>
+        <a href="/settings" class="inline-link" data-i18n="nav.settings">Settings</a>
+        <span data-i18n="research.tipSuffix">to unlock higher limits.</span>
+      </p>
+    </div>
+    {% endif %}
+
     <button id="research-run" class="primary-btn search-btn" data-i18n="research.run" type="button">Run</button>
   </div>
   <p id="research-status" class="muted small-status" data-i18n="research.guest">Guest mode: using GPT-4o mini + Gemini 1.5 Flash.</p>
@@ -23,6 +45,7 @@
       </header>
       <div id="research-answer-a" class="llm-card-body"></div>
     </article>
+
     <article class="llm-card">
       <header class="llm-card-head">
         <div class="llm-badge llm-badge-b">B</div>
@@ -34,11 +57,20 @@
       <div id="research-answer-b" class="llm-card-body"></div>
     </article>
   </div>
+
   <article class="llm-compare-card">
     <header>
-      <h2 data-i18n="research.synthesis">Comparison / Synthesis</h2>
-      <p id="research-synthesis" class="muted" style="margin-top:.4rem;"></p>
+      <div class="compare-head">
+        <div>
+          <h2 data-i18n="research.synthesis">Comparison / Synthesis</h2>
+          <p id="research-synthesis" class="muted" style="margin-top:.4rem;"></p>
+        </div>
+        <button id="research-compare" class="pill-btn" type="button" data-i18n="research.compare" style="display:none;">
+          Compare &amp; reconcile
+        </button>
+      </div>
     </header>
+
     <div class="compare-cols">
       <div class="compare-col">
         <h3 data-i18n="research.agreements">Agreements</h3>
@@ -48,6 +80,16 @@
         <h3 data-i18n="research.disagreements">Disagreements</h3>
         <ul id="research-disagreements" class="compare-list"></ul>
       </div>
+    </div>
+
+    <div class="compare-extra" id="research-reco-wrap" style="display:none;">
+      <h3 data-i18n="research.recommendation">Recommendation</h3>
+      <div id="research-recommendation" class="compare-reco"></div>
+      <div id="research-openq-wrap" style="display:none;">
+        <h3 data-i18n="research.openQuestions">Open questions</h3>
+        <ul id="research-open-questions" class="compare-list"></ul>
+      </div>
+      <p id="research-compare-meta" class="muted" style="margin-top:.6rem;"></p>
     </div>
   </article>
 </section>
@@ -67,6 +109,12 @@ document.addEventListener("DOMContentLoaded",function(){
   const disagree=document.getElementById("research-disagreements");
   const badgeA=document.getElementById("research-model-a-badge");
   const badgeB=document.getElementById("research-model-b-badge");
+  const cmpBtn=document.getElementById("research-compare");
+  const recoWrap=document.getElementById("research-reco-wrap");
+  const recoEl=document.getElementById("research-recommendation");
+  const openqWrap=document.getElementById("research-openq-wrap");
+  const openqEl=document.getElementById("research-open-questions");
+  const cmpMeta=document.getElementById("research-compare-meta");
 
   function lang(){
     const both = document.cookie.split("; ");
@@ -75,10 +123,10 @@ document.addEventListener("DOMContentLoaded",function(){
     return (a||b) ? (a||b).split("=")[1] : "en";
   }
   const STATUS={
-    en:{loading:"Querying LLMs …",done:"Done ✓",net:"Network error.",bad:"Bad response.",limit:"Daily guest limit reached."},
-    de:{loading:"LLMs werden abgefragt …",done:"Fertig ✓",net:"Netzwerkfehler.",bad:"Fehlerhafte Antwort.",limit:"Tageslimit für Gäste erreicht."},
-    fr:{loading:"Interrogation des LLM…",done:"Terminé ✓",net:"Erreur réseau.",bad:"Réponse invalide.",limit:"Limite quotidienne invitée atteinte."},
-    es:{loading:"Consultando LLM…",done:"Listo ✓",net:"Error de red.",bad:"Respuesta no válida.",limit:"Límite diario de invitado alcanzado."}
+    en:{loading:"Querying LLMs …",done:"Done ✓",net:"Network error.",bad:"Bad response.",limit:"Daily guest limit reached.",cmp:"Comparing …",cmpDone:"Compared ✓"},
+    de:{loading:"LLMs werden abgefragt …",done:"Fertig ✓",net:"Netzwerkfehler.",bad:"Fehlerhafte Antwort.",limit:"Tageslimit für Gäste erreicht.",cmp:"Vergleich läuft …",cmpDone:"Verglichen ✓"},
+    fr:{loading:"Interrogation des LLM…",done:"Terminé ✓",net:"Erreur réseau.",bad:"Réponse invalide.",limit:"Limite quotidienne invitée atteinte.",cmp:"Comparaison …",cmpDone:"Comparé ✓"},
+    es:{loading:"Consultando LLM…",done:"Listo ✓",net:"Error de red.",bad:"Respuesta no válida.",limit:"Límite diario de invitado alcanzado.",cmp:"Comparando …",cmpDone:"Comparado ✓"}
   };
 
   const initialQuery=getParam("query")||"";
@@ -90,9 +138,16 @@ document.addEventListener("DOMContentLoaded",function(){
     statusEl.textContent=L.loading; resWrap.style.display="flex";
     ansA.textContent=ansB.textContent=syn.textContent="";
     agree.innerHTML=disagree.innerHTML="";
+    recoWrap.style.display="none";
+    recoEl.textContent="";
+    openqWrap.style.display="none";
+    openqEl.innerHTML="";
+    cmpMeta.textContent="";
+    cmpBtn.style.display="none";
+
     let resp;
     try{
-      resp=await fetch("/api/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query})});
+      resp=await fetch("/api/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query, model_a: (document.getElementById("model-a")||{}).value, model_b: (document.getElementById("model-b")||{}).value})});
     }catch(e){statusEl.textContent=L.net;return;}
     let data;
     try{data=await resp.json();}catch(e){statusEl.textContent=L.bad;return;}
@@ -101,14 +156,64 @@ document.addEventListener("DOMContentLoaded",function(){
     ansA.textContent=a.content||"–"; ansB.textContent=b.content||"–";
     badgeA.textContent=[a.provider,a.model].filter(Boolean).join(" / ");
     badgeB.textContent=[b.provider,b.model].filter(Boolean).join(" / ");
-    syn.textContent=s.summary||"–";
+    syn.textContent=(s.summary && String(s.summary).trim()) ? s.summary : (window.DuoMindI18N?.t?.("research.explainer") || "–");
     (s.agreements||[]).forEach(t=>{const li=document.createElement("li");li.textContent=t;agree.appendChild(li);});
     (s.disagreements||[]).forEach(t=>{const li=document.createElement("li");li.textContent=(typeof t==="string")?t:((t.from?`[${t.from}] `:"")+(t.text||""));disagree.appendChild(li);});
     statusEl.textContent=L.done;
+
+    cmpBtn.style.display="inline-flex";
   }
+
+  async function compareNow(){
+    const L=STATUS[lang()]||STATUS.en;
+    const q=(qLabel.textContent||"").trim();
+    const a=(ansA.textContent||"").trim();
+    const b=(ansB.textContent||"").trim();
+    if(!q||!a||!b) return;
+
+    cmpBtn.disabled=true;
+    statusEl.textContent=L.cmp;
+
+    let resp;
+    try{
+      resp=await fetch("/api/compare",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:q, answer_a:a, answer_b:b, lang:lang()})});
+    }catch(e){statusEl.textContent=L.net;cmpBtn.disabled=false;return;}
+    let data;
+    try{data=await resp.json();}catch(e){statusEl.textContent=L.bad;cmpBtn.disabled=false;return;}
+    if(!data.ok){statusEl.textContent=(data.detail||L.bad);cmpBtn.disabled=false;return;}
+
+    const d=data.data||{};
+    if(d.summary) syn.textContent=d.summary;
+    agree.innerHTML="";
+    (d.agreements||[]).forEach(t=>{const li=document.createElement("li");li.textContent=t;agree.appendChild(li);});
+    disagree.innerHTML="";
+    (d.disagreements||[]).forEach(t=>{const li=document.createElement("li");li.textContent=t;disagree.appendChild(li);});
+
+    recoWrap.style.display="block";
+    recoEl.textContent=d.recommendation||"";
+
+    openqEl.innerHTML="";
+    const oq=(d.open_questions||[]).filter(x=>String(x||"").trim());
+    if(oq.length){
+      openqWrap.style.display="block";
+      oq.forEach(t=>{const li=document.createElement("li");li.textContent=t;openqEl.appendChild(li);});
+    }else{
+      openqWrap.style.display="none";
+    }
+
+    const metaLabel = window.DuoMindI18N?.t?.("research.comparedBy") || "Compared by";
+    const metaParts=[];
+    if(d.provider||d.model) metaParts.push(`${d.provider||""}${d.model?": "+d.model:""}`);
+    cmpMeta.textContent = metaParts.length ? (metaLabel + ": " + metaParts.join(" ")) : "";
+
+    statusEl.textContent=L.cmpDone;
+    cmpBtn.disabled=false;
+  }
+
   if(initialQuery) run(initialQuery);
   btn.addEventListener("click",()=>{const q=(qInput.value||"").trim(); if(!q){qInput.focus();return;} qLabel.textContent=q; run(q);});
   qInput.addEventListener("keydown",e=>{ if(e.key==="Enter") btn.click(); });
+  cmpBtn.addEventListener("click",compareNow);
 });
 </script>
 {% endblock %}

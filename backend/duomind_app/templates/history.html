@@ -2,19 +2,78 @@
 {% block title %}History – DuoMind{% endblock %}
 {% block content %}
 <section class="card">
-  <h1 data-i18n="history.title">History</h1>
+  <div class="history-head">
+    <h1 data-i18n="history.title">History</h1>
+    <input class="history-search" id="history-search" type="search" data-i18n-placeholder="history.search" placeholder="Search history…" />
+  </div>
+
   {% if not current_user %}
     <p class="muted" data-i18n="history.needlogin">You must be logged in to view your research history.</p>
     <p class="muted">
-      <a href="/login" onclick="return DuoMindModal.open('/login');" data-i18n="history.cta.login">Login</a>
-      <span> · </span>
-      <a href="/register" onclick="return DuoMindModal.open('/register');" data-i18n="history.cta.register">Register</a>
+      <a href="javascript:void(0)" onclick="openLoginModal()" data-i18n="history.cta.login">Login</a> ·
+      <a href="javascript:void(0)" onclick="openRegisterModal()" data-i18n="history.cta.register">Register</a>
     </p>
   {% else %}
-    <p class="muted">These are your recent research items.</p>
-    <div id="history-list" style="margin-top:1rem;">
-      <p class="muted">Call <code>GET /api/history</code> with your JWT to load items.</p>
-    </div>
+    <div id="history-empty" class="muted" data-i18n="history.empty" style="display:none;">No research sessions yet.</div>
+    <div id="history-list" class="history-list"></div>
+    <button id="history-load" class="primary-btn" type="button" data-i18n="history.loadMore" style="display:none;">Load more</button>
   {% endif %}
 </section>
+
+{% if current_user %}
+<script>
+(function(){
+  const list = document.getElementById('history-list');
+  const empty = document.getElementById('history-empty');
+  const btn = document.getElementById('history-load');
+  const search = document.getElementById('history-search');
+
+  let offset = 0;
+  const limit = 20;
+  let allRows = [];
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function render(rows){
+    const q = (search.value || '').trim().toLowerCase();
+    const filtered = q ? rows.filter(r => (r.query||'').toLowerCase().includes(q)) : rows;
+
+    list.innerHTML = filtered.map(r => {
+      const t = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+      return `
+        <div class="history-item">
+          <div class="history-item-top">
+            <div class="history-query">${esc(r.query || '')}</div>
+            <div class="history-time">${esc(t)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    empty.style.display = (filtered.length === 0) ? 'block' : 'none';
+  }
+
+  async function loadMore(){
+    const url = `/api/history?limit=${limit}&offset=${offset}`;
+    const res = await fetch(url, { credentials: 'include' });
+    if(!res.ok){
+      console.warn('History fetch failed', res.status);
+      return;
+    }
+    const data = await res.json();
+    const rows = Array.isArray(data.items) ? data.items : [];
+    allRows = allRows.concat(rows);
+    offset += rows.length;
+    render(allRows);
+    btn.style.display = (rows.length === limit) ? 'inline-flex' : 'none';
+  }
+
+  btn.addEventListener('click', loadMore);
+  search.addEventListener('input', () => render(allRows));
+
+  loadMore();
+})();
+</script>
+{% endif %}
 {% endblock %}

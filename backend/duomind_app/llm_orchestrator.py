@@ -26,6 +26,9 @@ def dual_run(query: str, context: str, verified: bool = True) -> Tuple[List[Dict
 # Day 8 compare
 from duomind_app.providers import openai_provider, gemini_provider
 
+import json
+import re
+
 async def run_dual_research(
     query: str,
     model_a: str = "openai:gpt-4o-mini",
@@ -72,8 +75,117 @@ def build_synthesis(query: str, a: str, b: str) -> Dict[str, Any]:
             disagreements.append({"from": "B", "text": item})
 
     return {
-        "title": "Vergleich / Synthese",
-        "summary": "Both models responded. Agreements show overlap; disagreements show nuance.",
+        # UI localizes the section title. Keep content language-neutral.
+        "title": "Comparison / Synthesis",
+        "summary": "",
         "agreements": agreements,
         "disagreements": disagreements,
     }
+
+
+def _extract_first_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """Best-effort JSON extraction for LLM output.
+
+    Accepts raw JSON or JSON wrapped in Markdown fences.
+    """
+    if not text:
+        return None
+    t = text.strip()
+    # Strip ```json ... ``` fences
+    t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*```$", "", t)
+
+    # Fast path
+    try:
+        obj = json.loads(t)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # Find first {...} block
+    m = re.search(r"\{.*\}", t, flags=re.DOTALL)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
+
+
+async def run_compare_reconcile(
+    *,
+    query: str,
+    answer_a: str,
+    answer_b: str,
+    lang: str = "en",
+    openai_key: Optional[str] = None,
+    gemini_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """LLM-powered comparison (opt-in).
+
+    Uses OpenAI if an OpenAI key is available, otherwise Gemini.
+    """
+
+    lang_map = {
+        "en": "English",
+        "de": "German",
+        "fr": "French",
+        "es": "Spanish",
+        "pt": "Portuguese",
+        "tr": "Turkish",
+        "ru": "Russian",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "zh": "Chinese",
+        "th": "Thai",
+        "id": "Indonesian",
+        "vi": "Vietnamese",
+        "ar": "Arabic",
+    }
+    lang_name = lang_map.get((lang or "en").lower(), "English")
+
+    prompt = (
+        "You are a neutral analyst. Compare two independent answers to the same user query. "
+        "Produce a helpful reconciliation and highlight where they differ.\n\n"
+        "Return STRICT JSON (no markdown) with keys:\n"
+        "- summary: string (2–4 sentences)\n"
+        "- agreements: array of 3–6 short bullet strings\n"
+        "- disagreements: array of 3–6 short bullet strings\n"
+        "- recommendation: string (best combined answer or guidance, 4–10 sentences)\n"
+        "- open_questions: array of 0–5 short bullet strings (only if needed)\n\n"
+        f"Write in {lang_name}.\n\n"
+        f"USER QUERY:\n{query}\n\n"
+        f"ANSWER A:\n{answer_a}\n\n"
+        f"ANSWER B:\n{answer_b}\n"
+    )
+
+    used_provider = None
+    used_model = None
+    raw = ""
+
+    if (openai_key or "").strip():
+        used_provider = "openai"
+        used_model = "gpt-4o-mini"
+        raw = await openai_provider.call_openai_model(prompt, used_model, openai_key)
+    elif (gemini_key or "").strip():
+        used_provider = "gemini"
+        used_model = "1.5-flash"
+        raw = await gemini_provider.call_gemini_model(prompt, used_model, gemini_key)
+    else:
+        return {"ok": False, "detail": "Missing API key."}
+
+    obj = _extract_first_json_object(raw) or {}
+
+    data = {
+        "provider": used_provider,
+        "model": used_model,
+        "summary": str(obj.get("summary", "")).strip(),
+        "agreements": obj.get("agreements", []) if isinstance(obj.get("agreements", []), list) else [],
+        "disagreements": obj.get("disagreements", []) if isinstance(obj.get("disagreements", []), list) else [],
+        "recommendation": str(obj.get("recommendation", "")).strip(),
+        "open_questions": obj.get("open_questions", []) if isinstance(obj.get("open_questions", []), list) else [],
+        "raw": raw,
+    }
+    return {"ok": True, "data": data}

@@ -6,6 +6,7 @@
   <title>{% block title %}DuoMind{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="/static/duomind.svg">
   <link rel="stylesheet" href="/static/style.css">
+  <!-- i18n.js defines window.DuoMindI18N + handles [data-lang] clicks -->
   <script src="{{ url_for('static', path='/i18n.js') }}" defer></script>
 </head>
 
@@ -15,14 +16,23 @@
     <img src="/static/duomind.svg" alt="DuoMind" class="logo"/>
     <span>DuoMind</span>
   </div>
+
   <div class="nav-right">
     <button class="nav-link" data-i18n="nav.home" onclick="window.location.href='/'">Home</button>
 
     {% if current_user %}
-      <span class="nav-hello" data-i18n="nav.hello">Hello</span>
-      <span class="nav-user">{{ current_user.username or current_user.email }}</span>
-      <button class="nav-link" data-i18n="nav.settings" onclick="window.location.href='/settings'">Settings</button>
-      <button class="nav-link" data-i18n="nav.history" onclick="window.location.href='/history'">History</button>
+      <!-- User dropdown (History is registered-only) -->
+      <div class="lang-dropdown user-dropdown" data-open="false">
+        <button class="lang-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+          <span data-i18n="nav.hello">Hello</span>&nbsp;<span class="nav-user">{{ current_user.username or current_user.email }}</span>
+          <span class="lang-caret">▾</span>
+        </button>
+        <div class="lang-menu" role="menu" aria-label="User menu">
+          <button type="button" role="menuitem" data-i18n="nav.history" onclick="window.location.href='/history'">History</button>
+          <button type="button" role="menuitem" data-i18n="nav.settings" onclick="window.location.href='/settings'">Settings</button>
+          <button type="button" role="menuitem" data-i18n="nav.logout" onclick="window.location.href='/auth/logout'">Logout</button>
+        </div>
+      </div>
     {% else %}
       <button class="nav-link" data-i18n="nav.login" onclick="openLoginModal()">Login</button>
       <button class="nav-link" data-i18n="nav.register" onclick="openRegisterModal()">Register</button>
@@ -30,26 +40,27 @@
 
     <button class="pill-btn" id="theme-toggle" data-i18n="nav.theme">Theme</button>
 
+    <!-- Language dropdown: UI open/close only. i18n.js handles language switching. -->
     <div class="lang-dropdown" data-open="false">
-      <button class="lang-trigger">
+      <button class="lang-trigger" type="button" aria-haspopup="true" aria-expanded="false">
         <span class="lang-current">English</span>
         <span class="lang-caret">▾</span>
       </button>
-      <div class="lang-menu">
-        <button data-lang="en">English</button>
-        <button data-lang="de">Deutsch</button>
-        <button data-lang="fr">Français</button>
-        <button data-lang="es">Español</button>
-        <button data-lang="pt">Português</button>
-        <button data-lang="tr">Türkçe</button>
-        <button data-lang="ru">Русский</button>
-        <button data-lang="ja">日本語</button>
-        <button data-lang="ko">한국어</button>
-        <button data-lang="zh">中文</button>
-        <button data-lang="th">ไทย</button>
-        <button data-lang="id">Bahasa</button>
-        <button data-lang="vi">Tiếng Việt</button>
-        <button data-lang="ar">العربية</button>
+      <div class="lang-menu" role="menu" aria-label="Language">
+        <button type="button" role="menuitem" data-lang="en">English</button>
+        <button type="button" role="menuitem" data-lang="de">Deutsch</button>
+        <button type="button" role="menuitem" data-lang="fr">Français</button>
+        <button type="button" role="menuitem" data-lang="es">Español</button>
+        <button type="button" role="menuitem" data-lang="pt">Português</button>
+        <button type="button" role="menuitem" data-lang="tr">Türkçe</button>
+        <button type="button" role="menuitem" data-lang="ru">Русский</button>
+        <button type="button" role="menuitem" data-lang="ja">日本語</button>
+        <button type="button" role="menuitem" data-lang="ko">한국어</button>
+        <button type="button" role="menuitem" data-lang="zh">中文</button>
+        <button type="button" role="menuitem" data-lang="th">ไทย</button>
+        <button type="button" role="menuitem" data-lang="id">Bahasa</button>
+        <button type="button" role="menuitem" data-lang="vi">Tiếng Việt</button>
+        <button type="button" role="menuitem" data-lang="ar">العربية</button>
       </div>
     </div>
   </div>
@@ -63,12 +74,15 @@
   AI Research Copilot • © 2025
 </footer>
 
+<!-- LOGIN MODAL -->
 <div id="login-modal" class="modal" aria-hidden="true">
   <div class="modal-backdrop" onclick="closeModal('login-modal')"></div>
   <div class="modal-panel">
     <button class="modal-close" onclick="closeModal('login-modal')">×</button>
     <h2 data-i18n="login.title">Login</h2>
     <p class="muted" data-i18n="login.subtitle">Log in to access your settings and history.</p>
+    <div class="auth-alert" id="login-alert" role="alert" aria-live="polite"></div>
+
     <form method="post" action="/auth/login" class="auth-form">
       <label>
         <span data-i18n="login.email">Email</span>
@@ -76,23 +90,36 @@
       </label>
       <label>
         <span data-i18n="login.password">Password</span>
-        <input name="password" type="password" required data-i18n-placeholder="login.password" />
+        <div class="password-field">
+          <input name="password" type="password" required data-i18n-placeholder="login.password" />
+          <button type="button" class="toggle-eye" aria-label="Toggle password visibility">
+            <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 11a4 4 0 110-8 4 4 0 010 8z"/>
+            </svg>
+            <svg class="eye-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2 5l2.3 2.3A10.6 10.6 0 001 12s4 7 11 7c2.1 0 4-.6 5.7-1.6L19 20l2-2L4 3 2 5zm8.3 8.3l1.5 1.5A4 4 0 0112 8a4 4 0 01-1.7.3l1.5 1.5a2 2 0 00-.5 3.5zM12 5c7 0 11 7 11 7a10.7 10.7 0 01-4.4 4.8l-1.5-1.5A8.4 8.4 0 0021 12s-4-7-9-7c-.7 0-1.4.1-2 .2l-1.6-1.6C9.3 5.2 10.6 5 12 5z"/>
+            </svg>
+          </button>
+        </div>
       </label>
       <button type="submit" class="primary-btn" data-i18n="login.button">Login</button>
     </form>
-    <p class="muted">
+    <p class="muted auth-switch">
       <span data-i18n="login.noaccount">No account yet?</span>
-      <a href="javascript:void(0)" onclick="switchToRegister()" data-i18n="login.registerlink">Register</a>
+      <a href="javascript:void(0)" onclick="switchToRegister()" class="auth-link auth-link--premium" data-i18n="login.registerlink">Register</a>
     </p>
   </div>
 </div>
 
+<!-- REGISTER MODAL -->
 <div id="register-modal" class="modal" aria-hidden="true">
   <div class="modal-backdrop" onclick="closeModal('register-modal')"></div>
   <div class="modal-panel">
     <button class="modal-close" onclick="closeModal('register-modal')">×</button>
     <h2 data-i18n="register.title">Create Account</h2>
     <p class="muted" data-i18n="register.subtitle">Username will be shown in the top right after login.</p>
+    <div class="auth-alert" id="register-alert" role="alert" aria-live="polite"></div>
+
     <form method="post" action="/auth/register" class="auth-form" id="register-form">
       <label>
         <span data-i18n="register.username">Username</span>
@@ -104,89 +131,166 @@
       </label>
       <label>
         <span data-i18n="register.password">Password</span>
-        <input name="password" id="pwd" type="password" required data-i18n-placeholder="register.password" />
+        <div class="password-field">
+          <input name="password" id="pwd" type="password" required data-i18n-placeholder="register.password" />
+          <button type="button" class="toggle-eye" aria-label="Toggle password visibility">
+            <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 11a4 4 0 110-8 4 4 0 010 8z"/>
+            </svg>
+            <svg class="eye-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2 5l2.3 2.3A10.6 10.6 0 001 12s4 7 11 7c2.1 0 4-.6 5.7-1.6L19 20l2-2L4 3 2 5zm8.3 8.3l1.5 1.5A4 4 0 0112 8a4 4 0 01-1.7.3l1.5 1.5a2 2 0 00-.5 3.5zM12 5c7 0 11 7 11 7a10.7 10.7 0 01-4.4 4.8l-1.5-1.5A8.4 8.4 0 0021 12s-4-7-9-7c-.7 0-1.4.1-2 .2l-1.6-1.6C9.3 5.2 10.6 5 12 5z"/>
+            </svg>
+          </button>
+        </div>
       </label>
       <label>
         <span data-i18n="register.confirm">Confirm password</span>
-        <input name="confirm_password" id="pwd2" type="password" required data-i18n-placeholder="register.confirm" />
+        <div class="password-field">
+          <input name="confirm_password" id="pwd2" type="password" required data-i18n-placeholder="register.confirm" />
+          <button type="button" class="toggle-eye" aria-label="Toggle password visibility">
+            <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 11a4 4 0 110-8 4 4 0 010 8z"/>
+            </svg>
+            <svg class="eye-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2 5l2.3 2.3A10.6 10.6 0 001 12s4 7 11 7c2.1 0 4-.6 5.7-1.6L19 20l2-2L4 3 2 5zm8.3 8.3l1.5 1.5A4 4 0 0112 8a4 4 0 01-1.7.3l1.5 1.5a2 2 0 00-.5 3.5zM12 5c7 0 11 7 11 7a10.7 10.7 0 01-4.4 4.8l-1.5-1.5A8.4 8.4 0 0021 12s-4-7-9-7c-.7 0-1.4.1-2 .2l-1.6-1.6C9.3 5.2 10.6 5 12 5z"/>
+            </svg>
+          </button>
+        </div>
       </label>
+
       <p class="muted" data-i18n="register.rules">
         Password must be at least 8 characters, contain 2 digits, 1 special character, and 1 uppercase letter.
       </p>
       <button type="submit" class="primary-btn" data-i18n="register.button">Register</button>
     </form>
-    <p class="muted">
+    <p class="muted auth-switch">
       <span data-i18n="register.already">Already have an account?</span>
-      <a href="javascript:void(0)" onclick="switchToLogin()" data-i18n="register.loginlink">Login</a>
+      <a href="javascript:void(0)" onclick="switchToLogin()" class="auth-link auth-link--premium" data-i18n="register.loginlink">Login</a>
     </p>
   </div>
 </div>
 
 <script>
-  function openLoginModal(){ document.getElementById('login-modal').classList.add('show'); }
-  function openRegisterModal(){ document.getElementById('register-modal').classList.add('show'); }
-  function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-  function switchToRegister(){ closeModal('login-modal'); openRegisterModal(); }
-  function switchToLogin(){ closeModal('register-modal'); openLoginModal(); }
+function openLoginModal(){ document.getElementById('login-modal').classList.add('show'); }
+function openRegisterModal(){ document.getElementById('register-modal').classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function switchToRegister(){ closeModal('login-modal'); openRegisterModal(); }
+function switchToLogin(){ closeModal('register-modal'); openLoginModal(); }
 
-  function setTheme(theme){
-    document.documentElement.setAttribute('data-theme', theme);
-    document.cookie = "duomind_theme="+theme+";path=/;max-age=31536000";
-  }
-  function getTheme(){
-    const f = document.cookie.split('; ').find(x=>x.startsWith('duomind_theme='));
-    return f ? f.split('=')[1] : null;
-  }
-  const savedTheme = getTheme();
-  if (savedTheme) setTheme(savedTheme);
+// Theme
+function setTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.cookie = "duomind_theme="+theme+";path=/;max-age=31536000";
+}
+function getTheme(){
+  const f = document.cookie.split('; ').find(x=>x.startsWith('duomind_theme='));
+  return f ? f.split('=')[1] : null;
+}
+const savedTheme = getTheme();
+if (savedTheme) setTheme(savedTheme);
+document.getElementById('theme-toggle').addEventListener('click', ()=>{
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  setTheme(cur === 'dark' ? 'light' : 'dark');
+});
 
-  document.getElementById('theme-toggle').addEventListener('click', ()=>{
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-    setTheme(cur === 'dark' ? 'light' : 'dark');
-  });
+// Language dropdown open/close only (translation is handled by i18n.js)
+(function(){
+  const dropdowns = document.querySelectorAll(".lang-dropdown");
+  if (!dropdowns.length) return;
 
-  (function(){
-    const dropdown = document.querySelector(".lang-dropdown");
-    if (!dropdown) return;
-    const trigger = dropdown.querySelector(".lang-trigger");
-    const menu = dropdown.querySelector(".lang-menu");
-    const label = dropdown.querySelector(".lang-current");
+  document.addEventListener("click", (e) => {
+    dropdowns.forEach(dropdown => {
+      const trigger = dropdown.querySelector(".lang-trigger");
+      const menu = dropdown.querySelector(".lang-menu");
+      if (!trigger || !menu) return;
 
-    function setCookie(name, value, days = 365) {
-      const d = new Date();
-      d.setTime(d.getTime() + days * 24*60*60*1000);
-      document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`;
-    }
-    function getCookie(name) {
-      const v = `; ${document.cookie}`;
-      const p = v.split(`; ${name}=`);
-      return p.length === 2 ? p.pop().split(";").shift() : null;
-    }
-
-    const savedLang = getCookie("duomind_lang") || getCookie("language");
-    if (savedLang) {
-      const activeBtn = menu.querySelector(`[data-lang="${savedLang}"]`);
-      if (activeBtn) label.textContent = activeBtn.textContent;
-      if (window.DuoMindI18N) window.DuoMindI18N.setLang(savedLang);
-    }
-
-    document.addEventListener("click", (e) => {
+      // Toggle when clicking the trigger
       if (trigger.contains(e.target)) {
         const isOpen = dropdown.dataset.open === "true";
         dropdown.dataset.open = isOpen ? "false" : "true";
+        trigger.setAttribute("aria-expanded", (!isOpen).toString());
         return;
       }
-      if (menu.contains(e.target) && e.target.dataset.lang) {
-        const lang = e.target.dataset.lang;
-        label.textContent = e.target.textContent.trim();
+
+      // Close when clicking inside the menu (language buttons, user menu items, etc.)
+      if (menu.contains(e.target)) {
         dropdown.dataset.open = "false";
-        setCookie("duomind_lang", lang);
-        if (window.DuoMindI18N) window.DuoMindI18N.setLang(lang);
+        trigger.setAttribute("aria-expanded", "false");
         return;
       }
-      if (!dropdown.contains(e.target)) dropdown.dataset.open = "false";
+
+      // Close when clicking outside
+      if (!dropdown.contains(e.target)) {
+        dropdown.dataset.open = "false";
+        trigger.setAttribute("aria-expanded", "false");
+      }
     });
-  })();
+  });
+})();
+
+// Eyes toggle logic
+document.addEventListener("DOMContentLoaded", () => {
+  const registerEyes = document.querySelectorAll("#register-modal .toggle-eye");
+  const pw1 = document.getElementById("pwd");
+  const pw2 = document.getElementById("pwd2");
+
+  registerEyes.forEach(eye => {
+    eye.addEventListener("click", () => {
+      if (!pw1 || !pw2) return;
+      const isVisible = pw1.type === "text";
+      const newType = isVisible ? "password" : "text";
+      [pw1, pw2].forEach(p => p.type = newType);
+      registerEyes.forEach(e => e.classList.toggle("is-on", newType === "text"));
+    });
+  });
+
+  document.querySelectorAll("#login-modal .toggle-eye").forEach(eye => {
+    eye.addEventListener("click", () => {
+      const input = eye.parentElement.querySelector("input");
+      if (!input) return;
+      const isVisible = input.type === "text";
+      input.type = isVisible ? "password" : "text";
+      eye.classList.toggle("is-on", !isVisible);
+    });
+  });
+});
+
+function applyAuthErrorFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("error");
+  if (!code) return;
+
+  const loginAlert = document.getElementById("login-alert");
+  const registerAlert = document.getElementById("register-alert");
+
+  const ERR = {
+    weak_password: { modal: "register", msg: "Password is too weak. Please follow the rules shown below." },
+    password_mismatch: { modal: "register", msg: "Passwords don’t match. Please re-enter them." },
+    email_exists: { modal: "register", msg: "An account with this email already exists. Try logging in instead." },
+    invalid_credentials: { modal: "login", msg: "Incorrect email or password." },
+    not_logged_in: { modal: "login", msg: "Please log in to continue." }
+  };
+
+  const info = ERR[code] || { modal: "register", msg: "Something went wrong. Please try again." };
+
+  if (loginAlert) { loginAlert.textContent = ""; loginAlert.classList.remove("show"); }
+  if (registerAlert) { registerAlert.textContent = ""; registerAlert.classList.remove("show"); }
+
+  if (info.modal === "login") {
+    openLoginModal();
+    if (loginAlert) { loginAlert.textContent = info.msg; loginAlert.classList.add("show"); }
+  } else {
+    openRegisterModal();
+    if (registerAlert) { registerAlert.textContent = info.msg; registerAlert.classList.add("show"); }
+  }
+
+  try {
+    params.delete("error");
+    const newUrl = window.location.pathname + (params.toString() ? ("?" + params.toString()) : "");
+    window.history.replaceState({}, document.title, newUrl);
+  } catch (e) {}
+}
+document.addEventListener("DOMContentLoaded", applyAuthErrorFromUrl);
 </script>
 </body>
 </html>
