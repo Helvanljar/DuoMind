@@ -1,123 +1,198 @@
-# DuoMind 🧠⚖️  
-**Multi-LLM Debate with Evidence-Based Consensus**
+# DuoMind
 
-DuoMind is a research assistant that runs **multiple large language models in parallel**, compares their answers, and produces a **final, evidence-grounded conclusion**.
+DuoMind is a **multi-model research and comparison system** that runs the same question through multiple large language models, extracts **agreements and disagreements**, and produces a **reconciled recommendation**.
 
-Instead of trusting a single model, DuoMind lets LLMs **disagree**, then resolves disagreements using **external research** and an **evidence-gated judge**.
-
----
-
-## ✨ Key Features
-
-- 🔁 **Dual-LLM reasoning**  
-  Uses two public LLMs (e.g. OpenAI + Gemini) to answer the same question independently.
-
-- ⚔️ **Model disagreement & comparison**  
-  Clearly surfaces agreements and disagreements between models.
-
-- 📚 **Evidence-based resolution (RAG-style)**  
-  Retrieves external evidence from **Wikipedia** and forces the final answer to be based on that evidence.
-
-- 🧑‍⚖️ **Judge step**  
-  A dedicated reconciliation step accepts or rejects claims **only if supported by retrieved evidence**.
-
-- 🔌 **MCP integration (Model Context Protocol)**  
-  Exposes the debate workflow as MCP tools so external agents (e.g. Claude Desktop, Cursor) can invoke it.
-
-- 🌐 **REST API + UI**  
-  Works via standard API endpoints and a web interface.
+The project focuses on **model comparison and reasoning transparency**, not just answer generation.
 
 ---
 
-## 🧠 How DuoMind Works
+## ✨ Core Idea
 
-1. User asks a question  
-2. **LLM A** produces an answer  
-3. **LLM B** produces an independent answer  
-4. The system **retrieves external evidence** (Wikipedia)  
-5. A **judge step** evaluates both answers against the evidence  
-6. DuoMind returns:
-   - Final answer
-   - Supporting evidence
-   - Rejected claims
-   - Confidence assessment
+> *How do different LLMs reason about the same question — and where do they actually agree?*
 
-Example:  
-LLM A says the Earth is flat, LLM B says it is square → evidence retrieval → final answer: *oblate spheroid*.
+DuoMind answers this by:
+1. Running the same query through **two independent models**
+2. Comparing the results
+3. Highlighting:
+   - Agreements
+   - Disagreements
+   - A synthesized recommendation
 
 ---
 
-## 🔍 Research & RAG
+## 🧠 Architecture Overview
 
-DuoMind uses a **retrieval-augmented approach** without requiring a private document database.
+### MCP-style Multi-Model Orchestration (Current)
 
-- Evidence source: **Wikipedia (public, neutral, verifiable)**
-- No custom vector database required
-- No reliance on model internal knowledge alone
+DuoMind implements an **MCP-style (Model Coordination Pattern)** architecture:
 
-This keeps the system lightweight, reproducible, and easy to extend.
+| Role | Description |
+|----|----|
+| **Researcher A** | First LLM (e.g. Mistral) answers independently |
+| **Researcher B** | Second LLM (e.g. Gemini) answers independently |
+| **Judge / Reconciler** | A comparison step analyzes both answers |
+
+Core orchestration logic:
+```
+backend/duomind_app/llm_orchestrator.py
+```
+
+Key functions:
+- `run_dual_research()`
+- `run_compare_reconcile()`
 
 ---
 
-## 🔌 MCP (Model Context Protocol)
+## ❌ RAG Status
 
-DuoMind exposes its core capabilities via MCP:
+**DuoMind does NOT use RAG yet.**
 
-- `duomind_debate_and_converge`
-- `duomind_wikipedia_retrieve`
+- No document retrieval
+- No vector database
+- No external knowledge injection
 
-This allows MCP-compatible hosts and agents to integrate DuoMind as a tool.
+All answers rely on the **internal knowledge of the models**.
+
+RAG is a **planned extension**, not part of the current system.
 
 ---
 
-## 🏗️ Project Structure
+## 📊 Features
+
+- Multi-model research (Mistral + Gemini, optional OpenAI)
+- Agreement & disagreement extraction
+- Reconciled final recommendation
+- MCP-style orchestration
+- Daily usage limits (quota pill in UI)
+- Guest vs BYOK (Bring Your Own Key)
+- Language follows **question language**
+- Deterministic, frontend-safe compare output
+
+---
+
+## 🧩 Providers
+
+Supported providers:
+
+- Mistral
+- Google Gemini
+- OpenAI (BYOK only)
+
+Provider logic:
+```
+backend/duomind_app/providers/
+```
+
+---
+
+## 🔐 Environment Configuration
+
+### `.env.example`
+
+Copy and configure:
+```bash
+cp .env.example .env
+```
+
+Example:
+```env
+GUEST_MAX_PER_DAY=5
+USER_SERVER_MAX_PER_DAY=20
+
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+MISTRAL_API_KEY=
+
+JWT_SECRET_KEY=dev-secret-change-me
+```
+
+⚠️ Never commit `.env`.
+
+---
+
+## 🚦 Quotas & Daily Limits
+
+- Guests and non-BYOK users are IP-limited
+- Limits configurable via `.env`
+- Current usage shown in the **top bar pill**
+- Logic:
+```
+backend/duomind_app/routes_quota.py
+```
+
+---
+
+## 🖥️ Running the Backend
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r backend/requirements.txt
+uvicorn duomind_app.main:app --reload --env-file .env
+```
+
+Server:
+```
+http://127.0.0.1:8000
+```
+
+---
+
+## 🔍 API Endpoints
+
+| Endpoint | Description |
+|------|------|
+| `/api/research` | Multi-model research |
+| `/api/compare` | Compare & reconcile |
+| `/api/quota` | Quota status |
+| `/api/history` | Research history |
+
+---
+
+## 📁 Project Structure
 
 ```
 backend/
+ ├─ requirements.txt
  └─ duomind_app/
-    ├─ llm_orchestrator.py
-    ├─ web_retriever.py
-    ├─ routes_research.py
-    ├─ routes_debate.py
-    ├─ mcp_server.py
-    ├─ main.py
-    └─ templates/
+     ├─ main.py
+     ├─ llm_orchestrator.py
+     ├─ routes_research.py
+     ├─ routes_quota.py
+     ├─ providers/
+     │   ├─ mistral_provider.py
+     │   ├─ gemini_provider.py
+     │   └─ openai_provider.py
+     ├─ templates/
+     └─ static/
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🎯 Design Goals
 
-### Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### Run backend
-```bash
-uvicorn duomind_app.main:app --reload
-```
-
-### Open UI
-```
-http://localhost:8000
-```
-
-### MCP endpoint
-```
-http://localhost:8000/mcp
-```
+- Transparency over raw answers
+- Visible consensus & disagreement
+- Avoid hallucinated certainty
+- Clear separation of research, comparison, synthesis
 
 ---
 
-## 🛡️ Notes
+## 🚀 Future Work
 
-- Evidence is currently retrieved only from Wikipedia
-- Designed for research and educational purposes
-- Additional evidence sources can be added later
+- RAG integration
+- Source-aware agreements
+- Confidence scoring
+- Additional agent roles
 
 ---
 
-## 📌 Summary
+## 📜 License
 
-DuoMind demonstrates **multi-model reasoning**, **evidence-based consensus**, and **MCP-based integration** without unnecessary infrastructure.
+MIT
+
+---
+
+## 👤 Author
+
+DuoMind by **Helvanljar**
