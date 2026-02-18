@@ -1,130 +1,123 @@
-# ⭐ DuoMind
+# DuoMind 🧠⚖️  
+**Multi-LLM Debate with Evidence-Based Consensus**
 
-**DuoMind** is a dual-LLM research platform that runs multiple AI models
-in parallel, compares their outputs, and provides structured synthesis
-for better decision-making.
+DuoMind is a research assistant that runs **multiple large language models in parallel**, compares their answers, and produces a **final, evidence-grounded conclusion**.
 
-It lets users:
+Instead of trusting a single model, DuoMind lets LLMs **disagree**, then resolves disagreements using **external research** and an **evidence-gated judge**.
 
--   Run two AI models side-by-side
--   Compare answers and reconcile differences
--   Bring their own API keys (BYOK)
--   View research history
--   Use a multilingual interface
+---
 
-Built for research, analysis, and high-confidence AI workflows.
+## ✨ Key Features
 
-------------------------------------------------------------------------
+- 🔁 **Dual-LLM reasoning**  
+  Uses two public LLMs (e.g. OpenAI + Gemini) to answer the same question independently.
 
-## 🚀 Features
+- ⚔️ **Model disagreement & comparison**  
+  Clearly surfaces agreements and disagreements between models.
 
-### 🧠 Dual Model Research
+- 📚 **Evidence-based resolution (RAG-style)**  
+  Retrieves external evidence from **Wikipedia** and forces the final answer to be based on that evidence.
 
--   Run two LLMs simultaneously
--   Independent outputs
--   Side-by-side comparison
+- 🧑‍⚖️ **Judge step**  
+  A dedicated reconciliation step accepts or rejects claims **only if supported by retrieved evidence**.
 
-Supported providers: - OpenAI - Google Gemini - Anthropic - OpenRouter -
-Mistral
+- 🔌 **MCP integration (Model Context Protocol)**  
+  Exposes the debate workflow as MCP tools so external agents (e.g. Claude Desktop, Cursor) can invoke it.
 
-------------------------------------------------------------------------
+- 🌐 **REST API + UI**  
+  Works via standard API endpoints and a web interface.
 
-### 🔍 Compare & Reconcile
+---
 
--   Detect agreements between models
--   Highlight disagreements
--   Provide synthesis/recommendation
--   Identify open questions
--   Structured comparison output
+## 🧠 How DuoMind Works
 
-------------------------------------------------------------------------
+1. User asks a question  
+2. **LLM A** produces an answer  
+3. **LLM B** produces an independent answer  
+4. The system **retrieves external evidence** (Wikipedia)  
+5. A **judge step** evaluates both answers against the evidence  
+6. DuoMind returns:
+   - Final answer
+   - Supporting evidence
+   - Rejected claims
+   - Confidence assessment
 
-### 🔑 Bring Your Own Keys (BYOK)
+Example:  
+LLM A says the Earth is flat, LLM B says it is square → evidence retrieval → final answer: *oblate spheroid*.
 
--   Encrypted key storage
--   Automatic key validation
--   Per-provider configuration
--   Full usage when using own keys
+---
 
-------------------------------------------------------------------------
+## 🔍 Research & RAG
 
-### ⚡ Tiered Rate Limits
+DuoMind uses a **retrieval-augmented approach** without requiring a private document database.
 
-  User Type              Limits
-  ---------------------- ---------------
-  Guest                  Low daily cap
-  Registered (no keys)   Medium cap
-  Registered + BYOK      Uncapped
+- Evidence source: **Wikipedia (public, neutral, verifiable)**
+- No custom vector database required
+- No reliance on model internal knowledge alone
 
-------------------------------------------------------------------------
+This keeps the system lightweight, reproducible, and easy to extend.
 
-### 📜 Research History
+---
 
--   View past research runs
--   Reopen previous queries
--   See model pairs used
--   Pagination support
+## 🔌 MCP (Model Context Protocol)
 
-------------------------------------------------------------------------
+DuoMind exposes its core capabilities via MCP:
 
-### 🌍 Multilingual Interface
+- `duomind_debate_and_converge`
+- `duomind_wikipedia_retrieve`
 
--   Multiple language support
--   Automatic language switching
--   Full translation coverage
+This allows MCP-compatible hosts and agents to integrate DuoMind as a tool.
 
-------------------------------------------------------------------------
+---
 
-## 🛠 Installation
+## 🏗️ Project Structure
 
-### Requirements
+```
+backend/
+ └─ duomind_app/
+    ├─ llm_orchestrator.py
+    ├─ web_retriever.py
+    ├─ routes_research.py
+    ├─ routes_debate.py
+    ├─ mcp_server.py
+    ├─ main.py
+    └─ templates/
+```
 
--   Python 3.10+
--   API keys (optional but recommended)
+---
 
-### Setup
+## 🚀 Getting Started
 
-``` bash
-git clone https://github.com/Helvanljar/DuoMind.git
-cd DuoMind
+### Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-Create a `.env` file:
-
-    OPENAI_API_KEY=your_key
-    GEMINI_API_KEY=your_key
-    ANTHROPIC_API_KEY=your_key
-    OPENROUTER_API_KEY=your_key
-    MISTRAL_API_KEY=your_key
-
-Run:
-
-``` bash
-python backend/app.py
+### Run backend
+```bash
+uvicorn duomind_app.main:app --reload
 ```
 
-------------------------------------------------------------------------
+### Open UI
+```
+http://localhost:8000
+```
 
-## 🧩 Architecture
+### MCP endpoint
+```
+http://localhost:8000/mcp
+```
 
--   **Backend:** Python (Flask)
--   **Database:** SQLite
--   **Frontend:** HTML / JS
--   **Key Storage:** Encrypted
--   **Rate Limiting:** Tiered middleware
+---
 
-------------------------------------------------------------------------
+## 🛡️ Notes
 
-## 🔒 Security
+- Evidence is currently retrieved only from Wikipedia
+- Designed for research and educational purposes
+- Additional evidence sources can be added later
 
--   API keys encrypted at rest
--   No keys stored in plaintext
--   BYOK validation before save
--   Rate limiting protection
+---
 
-------------------------------------------------------------------------
+## 📌 Summary
 
-## 📄 License
-
-MIT License
+DuoMind demonstrates **multi-model reasoning**, **evidence-based consensus**, and **MCP-based integration** without unnecessary infrastructure.

@@ -10,8 +10,13 @@ from .routes_history import router as history_router
 from . import routes_research
 from . import routes_settings
 from . import routes_models
+from . import routes_debate
 
 app = FastAPI(title="DuoMind")
+
+# MCP (Model Context Protocol) endpoint
+from .mcp_server import mcp
+app.mount("/mcp", mcp.streamable_http_app())
 
 from .db import init_db
 
@@ -31,6 +36,7 @@ app.include_router(history_router, prefix="/api", tags=["history"])
 app.include_router(routes_research.router)
 app.include_router(routes_settings.router)
 app.include_router(routes_models.router)
+app.include_router(routes_debate.router)
 
 
 @app.get("/", response_class=HTMLResponse)

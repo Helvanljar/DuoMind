@@ -5,7 +5,8 @@
   <h1 class="research-title" data-i18n="research.title">Research session</h1>
   <p class="muted" id="duomind-query-label"></p>
   <div class="search-group">
-    <input id="research-query" class="input search-input" data-i18n-placeholder="research.search" placeholder="Type a query…" />
+    {# Match the home page "Startpage-style" fused search bar styling. #}
+    <input id="research-query" class="hero-input" type="text" data-i18n-placeholder="research.search" placeholder="Type a query…" />
 
     {% if current_user %}
     <div class="model-row">

@@ -189,3 +189,149 @@ async def run_compare_reconcile(
         "raw": raw,
     }
     return {"ok": True, "data": data}
+
+
+async def run_debate_and_converge(
+    *,
+    query: str,
+    model_a: str = "openai:gpt-4o-mini",
+    model_b: str = "gemini:1.5-flash",
+    lang: str = "en",
+    openai_key: Optional[str] = None,
+    gemini_key: Optional[str] = None,
+    evidence_lang: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Two-LLM debate + web retrieval (Wikipedia) + evidence-gated judge.
+
+    This is "RAG-lite": retrieval comes from public sources (Wikipedia) so we don't need a custom vector DB.
+    """
+    from duomind_app.web_retriever import retrieve_evidence
+
+    q = (query or "").strip()
+    if not q:
+        return {"ok": False, "detail": "query is required"}
+
+    # 1) Get initial answers from both models
+    base_prompt = (
+        "Answer the user question.\n"
+        "Then list your key claims as bullet points.\n"
+        "Be concise.\n\n"
+        f"QUESTION:\n{q}\n"
+    )
+
+    async def run_model_answer(model_id: str) -> str:
+        if model_id.startswith("openai:"):
+            mn = model_id.split(":", 1)[1]
+            return await openai_provider.call_openai_model(base_prompt, mn, openai_key)
+        if model_id.startswith("gemini:"):
+            mn = model_id.split(":", 1)[1]
+            return await gemini_provider.call_gemini_model(base_prompt, mn, gemini_key)
+        return f"Unsupported model: {model_id}"
+
+    answer_a, answer_b = await asyncio.gather(
+        run_model_answer(model_a),
+        run_model_answer(model_b),
+    )
+
+    # 2) Retrieve evidence (Wikipedia)
+    ev_lang = (evidence_lang or lang or "en").lower()
+    if ev_lang not in {"en", "de", "fr", "es", "pt", "it", "nl"}:
+        ev_lang = "en"
+    evidence = await retrieve_evidence(q, lang=ev_lang, max_pages=3)
+
+    evidence_block = ""
+    if evidence:
+        parts = []
+        for i, item in enumerate(evidence, start=1):
+            parts.append(
+                f"[E{i}] {item.get('title','')}\nURL: {item.get('url','')}\nSNIPPET: {item.get('snippet','')}\n"
+            )
+        evidence_block = "\n\n".join(parts)
+
+    # 3) Evidence-gated judge: decide what's true based on evidence
+    lang_map = {
+        "en": "English",
+        "de": "German",
+        "fr": "French",
+        "es": "Spanish",
+        "pt": "Portuguese",
+        "tr": "Turkish",
+        "ru": "Russian",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "zh": "Chinese",
+        "th": "Thai",
+        "id": "Indonesian",
+        "vi": "Vietnamese",
+        "ar": "Arabic",
+    }
+    lang_name = lang_map.get((lang or "en").lower(), "English")
+
+    judge_prompt = (
+        "You are a strict fact-checking judge. Your job: reconcile two answers using ONLY the provided EVIDENCE.\n"
+        "Rules:\n"
+        "1) If a claim is not supported by EVIDENCE, mark it as unsupported (even if it sounds plausible).\n"
+        "2) Prefer the most directly supported statements.\n"
+        "3) If evidence is insufficient, say so clearly and suggest what to look up next.\n\n"
+        "Return STRICT JSON (no markdown) with keys:\n"
+        "- final_answer: string (4–10 sentences)\n"
+        "- supported_facts: array of 3–8 short bullet strings\n"
+        "- rejected_claims: array of objects {claim: string, reason: string}\n"
+        "- sources: array of objects {label: string, url: string}\n"
+        "- confidence: string (one of: low, medium, high)\n\n"
+        f"Write in {lang_name}.\n\n"
+        f"QUESTION:\n{q}\n\n"
+        f"ANSWER A:\n{answer_a}\n\n"
+        f"ANSWER B:\n{answer_b}\n\n"
+        f"EVIDENCE:\n{evidence_block if evidence_block else 'No evidence retrieved.'}\n"
+    )
+
+    used_provider = None
+    used_model = None
+    raw = ""
+
+    if (openai_key or "").strip():
+        used_provider = "openai"
+        used_model = "gpt-4o-mini"
+        raw = await openai_provider.call_openai_model(judge_prompt, used_model, openai_key)
+    elif (gemini_key or "").strip():
+        used_provider = "gemini"
+        used_model = "1.5-flash"
+        raw = await gemini_provider.call_gemini_model(judge_prompt, used_model, gemini_key)
+    else:
+        return {"ok": False, "detail": "Missing API key."}
+
+    obj = _extract_first_json_object(raw) or {}
+
+    # Normalize sources based on evidence labels
+    sources = obj.get("sources", [])
+    if not isinstance(sources, list):
+        sources = []
+    norm_sources = []
+    for s in sources:
+        if isinstance(s, dict):
+            lbl = str(s.get("label", "")).strip()
+            url = str(s.get("url", "")).strip()
+            if lbl and url:
+                norm_sources.append({"label": lbl, "url": url})
+    # If model didn't include sources, add evidence urls
+    if not norm_sources and evidence:
+        for i, item in enumerate(evidence, start=1):
+            u = str(item.get("url", "")).strip()
+            if u:
+                norm_sources.append({"label": f"E{i}", "url": u})
+
+    data = {
+        "judge_provider": used_provider,
+        "judge_model": used_model,
+        "answer_a": answer_a,
+        "answer_b": answer_b,
+        "evidence": evidence,
+        "final_answer": str(obj.get("final_answer", "")).strip(),
+        "supported_facts": obj.get("supported_facts", []) if isinstance(obj.get("supported_facts", []), list) else [],
+        "rejected_claims": obj.get("rejected_claims", []) if isinstance(obj.get("rejected_claims", []), list) else [],
+        "sources": norm_sources,
+        "confidence": str(obj.get("confidence", "")).strip() or "medium",
+        "raw": raw,
+    }
+    return {"ok": True, "data": data}

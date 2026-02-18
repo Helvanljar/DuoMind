@@ -12,3 +12,4 @@ httpx>=0.25
 python-multipart>=0.0.9
 openai>=1.0
 google-genai>=0.3.0
+mcp[cli]>=1.2.0
